@@ -1,0 +1,197 @@
+<!--
+     Copyright 2007 Perry Nguyen <pfnguyen@hanhuy.com>
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+ 
+         http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+  -->
+<project name="jhdhomerun config" basedir="." default="compile">
+  <property name="lib.dir" value="lib"/>
+  <taskdef name="pack200"
+      classname="com.sun.tools.apache.ant.pack200.Pack200Task"
+      classpath="${lib.dir}/Pack200Task.jar"/>
+  <taskdef name="unpack200"
+      classname="com.sun.tools.apache.ant.pack200.Unpack200Task"
+      classpath="${lib.dir}/Pack200Task.jar"/>
+  <property name="common.ui.dist.dir" value="common-ui/dist"/>
+  <property file="build.properties"/>
+  <property name="build.dir" value="build"/>
+  <property name="test.build.dir" value="${build.dir}/test"/>
+  <property name="src.dir" value="src"/>
+  <property name="dist.dir" value="dist"/>
+  <property name="test.dir" value="test"/>
+  <property name="results.dir" value="${test.dir}/results"/>
+  <property name="report.dir" value="${test.dir}/report"/>
+  <property environment="env"/>
+
+  <path id="class.path">
+    <fileset dir="${lib.dir}">
+      <include name="*.jar"/>
+    </fileset>
+    <fileset dir="${common.ui.dist.dir}">
+      <include name="*.jar"/>
+    </fileset>
+
+  </path>
+  <target name="clean">
+    <delete dir="${build.dir}"/>
+    <delete dir="${dist.dir}"/>
+    <delete dir="${results.dir}"/>
+    <delete dir="${report.dir}"/>
+  </target>
+  <target name="all" depends="clean,common-ui,compile,test,dist"/>
+  <target name="common-ui">
+    <ant inheritAll="false" antfile="common-ui/build.xml" target="dist"/>
+  </target>
+  <target name="compile" depends="common-ui">
+    <mkdir dir="${build.dir}"/>
+    <javac srcdir="${src.dir}" destdir="${build.dir}" debug="on"
+           target="1.5" source="1.5">
+      <compilerarg value="-Xlint:unchecked"/>
+      <compilerarg value="-Xlint:deprecation"/>
+      <include name="com/hanhuy/**"/>
+      <classpath refid="class.path"/>
+    </javac>
+  </target>
+  <target name="compiletest" depends="compile">
+    <mkdir dir="${test.build.dir}"/>
+    <javac srcdir="${test.dir}" destdir="${test.build.dir}" debug="on"
+           target="1.5" source="1.5">
+      <compilerarg value="-Xlint:unchecked"/>
+      <compilerarg value="-Xlint:deprecation"/>
+      <classpath>
+        <path refid="class.path"/>
+        <pathelement location="${build.dir}"/>
+      </classpath>
+    </javac>
+  </target>
+  <target name="versionproperties" depends="getversion">
+    <tstamp/>
+    <propertyfile file="${build.dir}/com/hanhuy/hdhr/version.properties">
+      <entry key="revision" value="${build.version}"/>
+      <entry key="time" value="${DSTAMP}-${TSTAMP}"/>
+    </propertyfile>
+  </target>
+  <target name="jar" depends="compile,versionproperties">
+    <mkdir dir="${dist.dir}/hdhr"/>
+    <jar jarfile="${dist.dir}/hdhr/hdhr-resources.jar">
+      <fileset dir="${src.dir}">
+        <include name="com/hanhuy/**/*.png"/>
+        <include name="com/hanhuy/**/*.properties"/>
+      </fileset>
+    </jar>
+    <signjar jar="${dist.dir}/hdhr/hdhr-resources.jar"
+           alias="${key.alias}" keystore="${key.store}"
+       storepass="${key.store.pass}" storetype="${key.store.type}"/>
+    <jar jarfile="${build.dir}/hdhr.jar">
+      <manifest>
+        <attribute name="Main-Class" value="com.hanhuy.hdhr.Main"/>
+        <attribute name="Class-Path"
+            value="hdhr-resources.jar hanhuy-common-ui.jar"/>
+      </manifest>
+      <fileset dir="${build.dir}">
+        <include name="com/hanhuy/**/*.class"/>
+        <include name="com/hanhuy/**/*.properties"/>
+      </fileset>
+    </jar>
+    <antcall target="signjar">
+      <param name="src" value="${build.dir}/hdhr.jar"/>
+    </antcall>
+    <antcall target="signjar">
+      <param name="src" value="${common.ui.dist.dir}/hanhuy-common-ui.jar"/>
+    </antcall>
+  </target>
+
+  <target name="dist" depends="distdir,jar"/>
+  <target name="distdir">
+    <mkdir dir="${dist.dir}"/>
+  </target>
+  <target name="signjar" depends="dependsignjar" unless="signjar.uptodate">
+    <mkdir dir="${build.dir}/pack200"/>
+    <pack200 src="${src}" destfile="${build.dir}/pack200/${src.jar}"
+          repack="true"/>
+    <move file="${build.dir}/pack200/${src.jar}"
+        tofile="${dist.dir}/hdhr/${src.jar}"/>
+    <signjar jar="${dist.dir}/hdhr/${src.jar}"
+           alias="${key.alias}" keystore="${key.store}"
+       storepass="${key.store.pass}" storetype="${key.store.type}"/>
+    <pack200 src="${dist.dir}/hdhr/${src.jar}"
+        destfile="${dist.dir}/hdhr/${src.jar}.pack.gz" gzipoutput="true"/>
+  </target>
+  <target name="dependsignjar">
+    <basename property="src.jar" file="${src}"/>
+    <dirname  property="src.dir" file="${src}"/>
+    <uptodate property="signjar.uptodate" srcfile="${src}"
+            targetfile="${dist.dir}/hdhr/${src.jar}.pack.gz"/>
+    <echo message="${src} ~ ${dist.dir}/hdhr/${src.jar}.pack.gz"/>
+  </target>
+
+  <target name="test" depends="compile,compiletest">
+    <mkdir dir="${results.dir}"/>
+    <mkdir dir="${report.dir}"/>
+    <junit printsummary="on"
+           fork="true"
+           forkmode="perBatch"
+           haltonerror="on"
+           failureproperty="testsfailed">
+      <formatter type="plain" usefile="false"/>
+      <batchtest fork="yes" todir="${results.dir}">
+        <fileset dir="${test.dir}">
+          <include name="com/hanhuy/**/*Test.java"/>
+        </fileset>
+        <formatter type="xml" />
+      </batchtest>
+      <classpath>
+        <pathelement location="${build.dir}"/>
+        <pathelement location="${test.build.dir}"/>
+        <pathelement location="${src.dir}"/>
+        <path refid="class.path"/>
+        <pathelement location="${test.dir}"/>
+      </classpath>
+    </junit>
+    <junitreport todir="${report.dir}">
+      <fileset dir="${results.dir}">
+        <include name="TEST-*.xml" />
+      </fileset>
+      <report format="noframes" todir="${report.dir}" />
+    </junitreport>
+    <fail if="testsfailed" message="Testing failed"/>
+  </target>
+  <target name="getversion"
+       depends="getversion-check,getversion-svn,getversion-hg,getversion-svk">
+    <echo message="version = ${build.version}"/>
+  </target>
+  <target name="getversion-check">
+    <available file=".svn" property="build.has.svn"/>
+    <available file=".hg"  property="build.has.hg"/>
+    <available file="${user.home}/.svk" property="user.has.svk"/>
+    <condition property="build.use.svk">
+      <and>
+        <not><isset property="build.has.svn"/></not>
+        <not><isset property="build.has.hg"/></not>
+      </and>
+    </condition>
+  </target>
+  <target name="getversion-svn" if="build.has.svn">
+    <exec executable="svnversion" outputproperty="build.version"/>
+  </target>
+  <target name="getversion-hg" if="build.has.hg">
+    <exec executable="hg" outputproperty="build.version">
+      <arg value="identify"/>
+      <arg value="-n"/>
+    </exec>
+  </target>
+  <target name="getversion-svk" if="build.use.svk">
+    <exec executable="sh" outputproperty="build.version">
+      <arg value="-c"/>
+      <arg value="svk info | grep ^Revision: | awk '{ print $2 }'"/>
+    </exec>
+  </target>
+</project>
