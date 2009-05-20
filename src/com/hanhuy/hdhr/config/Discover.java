@@ -23,13 +23,23 @@ import java.util.Set;
 
 public class Discover {
 
-    public static void discover() throws SocketException, IOException {
+    public static Map<Integer,InetAddress[]> discover()
+    throws SocketException, IOException {
+        return discover(Packet.DEVICE_ID_WILDCARD);
+    }
+
+    /**
+     * @return a Map containing device id mapped to an InetAddress array:
+     *         element 0 = interface address, element 1 = device address
+     */
+    public static Map<Integer,InetAddress[]> discover(int deviceId)
+    throws SocketException, IOException {
         Enumeration<NetworkInterface> ifaces =
                 NetworkInterface.getNetworkInterfaces();
 
         List<DatagramSocket> socks = new ArrayList<DatagramSocket>();
-        Map<DatagramSocket,InetAddress> broadcastMap =
-                new HashMap<DatagramSocket,InetAddress>();
+        Map<DatagramSocket,InterfaceAddress> ifaceMap =
+                new HashMap<DatagramSocket,InterfaceAddress>();
         while (ifaces.hasMoreElements()) {
             NetworkInterface iface = ifaces.nextElement();
             List<InterfaceAddress> addrs = iface.getInterfaceAddresses();
@@ -42,19 +52,19 @@ public class Discover {
                 sock.setBroadcast(true);
                 sock.bind(new InetSocketAddress(addr.getAddress(), 0));
                 socks.add(sock);
-                broadcastMap.put(sock, addr.getBroadcast());
+                ifaceMap.put(sock, addr);
             }
         }
 
-
-
         Packet packet = new Packet();
         packet.addTag(Packet.Tag.DEVICE_TYPE, Packet.DEVICE_TYPE_TUNER);
-        packet.addTag(Packet.Tag.DEVICE_ID,   Packet.DEVICE_ID_WILDCARD);
+        packet.addTag(Packet.Tag.DEVICE_ID,   deviceId);
+
         byte[] b = packet.seal(Packet.Type.DISCOVER_REQ);
+
         for (DatagramSocket s : socks) {
             DatagramPacket p = new DatagramPacket(b, b.length,
-                    broadcastMap.get(s), Packet.DISCOVER_UDP_PORT);
+                    ifaceMap.get(s).getBroadcast(), Packet.DISCOVER_UDP_PORT);
             s.send(p);
             s.getChannel().configureBlocking(false);
         }
@@ -65,24 +75,42 @@ public class Discover {
             c.register(select, SelectionKey.OP_READ);
         }
 
-        int results = select.select(1000);
+        int results = select.select(250);
         Set<SelectionKey> keys = select.selectedKeys();
-        System.out.println("Results: " + results);
+        Packet p = new Packet();
+        Map<Integer,InetAddress[]> deviceMap =
+                new HashMap<Integer,InetAddress[]>();
         for (SelectionKey key : keys) {
             DatagramChannel c = (DatagramChannel) key.channel();
-            ByteBuffer bb = ByteBuffer.allocate(3074);
-            InetSocketAddress peer = (InetSocketAddress) c.receive(bb);
-            bb.flip();
-            Packet p = new Packet(bb);
-            for (Packet.TagEntry entry : p) {
-                System.out.println(entry.tag);
-                int id = ByteBuffer.wrap(entry.value).getInt();
-                System.out.println(Integer.toHexString(id));
+            InetSocketAddress peer = (InetSocketAddress) c.receive(p.buffer());
+            p.parse();
+            if (p.getType() != Packet.Type.DISCOVER_RPY) {
+                throw new IllegalStateException(
+                        "Unexpected response: " + p.getType());
+            }
+            Map<Packet.Tag,byte[]> tags = p.getTagMap();
+            int id = ByteBuffer.wrap(tags.get(Packet.Tag.DEVICE_ID)).getInt();
+            if (deviceId != Packet.DEVICE_ID_WILDCARD
+            &&  deviceId != id) {
+                    throw new IllegalStateException(
+                        "Did not get expected device id: " + id);
+            }
+            if (!deviceMap.containsKey(id)) {
+                deviceMap.put(id, new InetAddress[] {
+                        ifaceMap.get(c.socket()).getAddress(),
+                        peer.getAddress() });
             }
         }
+        return deviceMap;
     }
 
     public static void main(String[] args) throws Exception {
-        discover();
+        Map<Integer,InetAddress[]> deviceMap = discover(
+                Integer.parseInt("10165722", 16));
+        for (Map.Entry<Integer,InetAddress[]> device : deviceMap.entrySet()) {
+            System.out.println("Found device " +
+                    Integer.toHexString(device.getKey()) + " at " +
+                    device.getValue()[1].getHostAddress());
+        }
     }
 }
