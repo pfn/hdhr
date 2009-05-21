@@ -17,6 +17,11 @@ public class Packet {
     public final static int   DISCOVER_UDP_PORT  = 65001;
     public final static int   CONTROL_TCP_PORT   = 65001;
 
+    // leaves 2050 bytes for actual data
+    private final static int BUFFER_SIZE  = 2058;
+    private final static int BUFFER_START = 4; // type and size
+    private final static int BUFFER_CRC   = 4; // 4 byte crc
+
     public enum Tag {
         DEVICE_TYPE    ((byte)0x01),
         DEVICE_ID      ((byte)0x02),
@@ -50,12 +55,16 @@ public class Packet {
     private Type type;
 
     public Packet() {
-        buf = ByteBuffer.allocate(3074);
+        buf = ByteBuffer.allocate(BUFFER_SIZE);
         reset();
     }
 
+    /**
+     * @return a buffer meant to be passed to ReadableByteChannel.read()
+     */
     public ByteBuffer buffer() {
         reset();
+        buf.clear();
         return buf;
     }
 
@@ -74,12 +83,12 @@ public class Packet {
 
     private void flip() {
         buf.limit(buf.position());
-        buf.position(1024);
+        buf.position(BUFFER_START);
     }
 
     private void reset() {
-        buf.position(1024);
-        buf.limit(buf.capacity() - 4);
+        buf.position(BUFFER_START);
+        buf.limit(buf.capacity() - BUFFER_CRC);
         sealed = false;
         type = null;
         tagMap = null;
@@ -87,31 +96,41 @@ public class Packet {
 
     public void parse() {
         flip();
-        buf.limit(buf.limit() - 4);
+        buf.position(buf.position() - BUFFER_START);
+        buf.limit(buf.limit() - BUFFER_CRC);
+
         int crc = crc();
-        buf.limit(buf.limit() + 4);
+
+        buf.position(buf.limit());
+        buf.limit(buf.limit() + BUFFER_CRC);
+
         buf.order(ByteOrder.LITTLE_ENDIAN);
         int packetCrc = buf.getInt();
         buf.order(ByteOrder.BIG_ENDIAN);
-        buf.position(buf.position() - 4);
-        flip();
-
-        short pType = buf.getShort();
-        short pLen  = buf.getShort(); // unused
-        for (Type t : Type.values()) {
-            if (t.value == pType) {
-                type = t;
-                break;
-            }
-        }
-        if (type == null)
-            throw new IllegalStateException("Unknown packet type: " + pType);
 
         if (crc != packetCrc) {
             throw new IllegalStateException("CRC32 error: " +
                     Integer.toHexString(crc) + " != " +
                     Integer.toHexString(packetCrc));
         }
+
+        flip();
+        buf.limit(buf.limit() - BUFFER_CRC);
+        buf.position(buf.position() - BUFFER_START);
+
+        short pType = buf.getShort();
+        buf.getShort(); // unused, packet length
+        for (Type t : Type.values()) {
+            if (t.value == pType) {
+                type = t;
+                break;
+            }
+        }
+
+        if (type == null)
+            throw new IllegalStateException("Unknown packet type: 0x" +
+                    Integer.toHexString(pType));
+
         sealed = true;
     }
 
@@ -121,40 +140,38 @@ public class Packet {
         return type;
     }
 
-    public byte[] seal(Type type) {
+    public ByteBuffer seal(Type type) {
         if (sealed) throw new IllegalStateException("Packet has been sealed");
         this.type = type;
         flip();
         short len = (short) buf.remaining();
 
         // frame type and length here
-        buf.position(buf.position() - 4);
+        buf.position(buf.position() - BUFFER_START);
         buf.putShort(type.value);
         buf.putShort(len);
-        buf.position(buf.position() - 4);
+        buf.position(buf.position() - BUFFER_START);
 
         // crc here (includes type and length)
         int crc = crc();
+
         buf.position(buf.limit());
-        buf.limit(buf.limit() + 4);
+        buf.limit(buf.limit() + BUFFER_CRC);
+
         buf.order(ByteOrder.LITTLE_ENDIAN);
         buf.putInt(crc);
         buf.order(ByteOrder.BIG_ENDIAN);
 
         flip();
-        buf.position(buf.position() - 4);
-        byte[] b = new byte[buf.remaining()];
-        buf.get(b);
+        buf.position(buf.position() - BUFFER_START);
         sealed = true;
-        return b;
+        return buf.slice().asReadOnlyBuffer();
     }
 
     private int crc() {
-        byte[] b = new byte[buf.remaining()];
-        buf.get(b);
-
         CRC32 c = new CRC32();
-        c.update(b);
+        c.update(buf.array(), buf.arrayOffset() + buf.position(),
+                buf.remaining());
         return (int) c.getValue();
     }
 
@@ -204,7 +221,8 @@ public class Packet {
             }
             this.tag = temp;
             if (this.tag == null) {
-                throw new IllegalStateException("Unknown tag: " + tag);
+                throw new IllegalStateException("Unknown tag: 0x" +
+                        Integer.toHexString(tag));
             }
             this.value = value;
         }
@@ -229,7 +247,8 @@ public class Packet {
     }
 
     /**
-     * The packet may only be iterated once.
+     * The packet may only be iterated once.  flip() can enable the packet to
+     * be iterated again.
      */
     public Iterator<TagEntry> tagIterator() {
         if (!sealed)
@@ -238,7 +257,7 @@ public class Packet {
         return new Iterator<TagEntry>() {
             private TagEntry entry;
             public boolean hasNext() {
-                if (buf.remaining() > 2) {
+                if (buf.remaining() > 2 && entry == null) {
                     byte tag = buf.get();
                     short len = decodeVarlen();
                     byte[] data = new byte[len];
@@ -250,7 +269,7 @@ public class Packet {
             }
             public TagEntry next() {
                 TagEntry current = entry;
-                if (current == null)
+                if (!hasNext())
                     throw new NoSuchElementException("No more elements");
                 entry = null;
                 return current;

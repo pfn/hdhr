@@ -23,8 +23,7 @@ import java.util.Set;
 
 public class Discover {
 
-    public static Map<Integer,InetAddress[]> discover()
-    throws SocketException, IOException {
+    public static Map<Integer,InetAddress[]> discover() throws TunerException {
         return discover(Packet.DEVICE_ID_WILDCARD);
     }
 
@@ -33,75 +32,84 @@ public class Discover {
      *         element 0 = interface address, element 1 = device address
      */
     public static Map<Integer,InetAddress[]> discover(int deviceId)
-    throws SocketException, IOException {
-        Enumeration<NetworkInterface> ifaces =
-                NetworkInterface.getNetworkInterfaces();
-
-        List<DatagramSocket> socks = new ArrayList<DatagramSocket>();
-        Map<DatagramSocket,InterfaceAddress> ifaceMap =
-                new HashMap<DatagramSocket,InterfaceAddress>();
-        while (ifaces.hasMoreElements()) {
-            NetworkInterface iface = ifaces.nextElement();
-            List<InterfaceAddress> addrs = iface.getInterfaceAddresses();
-            for (InterfaceAddress addr : addrs) {
-                if (addr.getBroadcast() == null)
-                    continue;
-                DatagramChannel c = DatagramChannel.open();
-                DatagramSocket sock = c.socket();
-                sock.setSoTimeout(1000);
-                sock.setBroadcast(true);
-                sock.bind(new InetSocketAddress(addr.getAddress(), 0));
-                socks.add(sock);
-                ifaceMap.put(sock, addr);
+    throws TunerException {
+        try {
+            Enumeration<NetworkInterface> ifaces =
+                    NetworkInterface.getNetworkInterfaces();
+    
+            List<DatagramChannel> socks = new ArrayList<DatagramChannel>();
+            Map<DatagramChannel,InterfaceAddress> ifaceMap =
+                    new HashMap<DatagramChannel,InterfaceAddress>();
+            while (ifaces.hasMoreElements()) {
+                NetworkInterface iface = ifaces.nextElement();
+                List<InterfaceAddress> addrs = iface.getInterfaceAddresses();
+                for (InterfaceAddress addr : addrs) {
+                    if (addr.getBroadcast() == null)
+                        continue;
+                    DatagramChannel c = DatagramChannel.open();
+                    DatagramSocket sock = c.socket();
+                    sock.setSoTimeout(1000);
+                    sock.setBroadcast(true);
+                    sock.bind(new InetSocketAddress(addr.getAddress(), 0));
+                    socks.add(c);
+                    ifaceMap.put(c, addr);
+                }
             }
-        }
-
-        Packet packet = new Packet();
-        packet.addTag(Packet.Tag.DEVICE_TYPE, Packet.DEVICE_TYPE_TUNER);
-        packet.addTag(Packet.Tag.DEVICE_ID,   deviceId);
-
-        byte[] b = packet.seal(Packet.Type.DISCOVER_REQ);
-
-        for (DatagramSocket s : socks) {
-            DatagramPacket p = new DatagramPacket(b, b.length,
-                    ifaceMap.get(s).getBroadcast(), Packet.DISCOVER_UDP_PORT);
-            s.send(p);
-            s.getChannel().configureBlocking(false);
-        }
-
-        Selector select = Selector.open();
-        for (DatagramSocket s : socks) {
-            DatagramChannel c = s.getChannel();
-            c.register(select, SelectionKey.OP_READ);
-        }
-
-        int results = select.select(250);
-        Set<SelectionKey> keys = select.selectedKeys();
-        Packet p = new Packet();
-        Map<Integer,InetAddress[]> deviceMap =
-                new HashMap<Integer,InetAddress[]>();
-        for (SelectionKey key : keys) {
-            DatagramChannel c = (DatagramChannel) key.channel();
-            InetSocketAddress peer = (InetSocketAddress) c.receive(p.buffer());
-            p.parse();
-            if (p.getType() != Packet.Type.DISCOVER_RPY) {
-                throw new IllegalStateException(
-                        "Unexpected response: " + p.getType());
+    
+            Packet packet = new Packet();
+            packet.addTag(Packet.Tag.DEVICE_TYPE, Packet.DEVICE_TYPE_TUNER);
+            packet.addTag(Packet.Tag.DEVICE_ID,   deviceId);
+    
+            ByteBuffer b = packet.seal(Packet.Type.DISCOVER_REQ);
+    
+            for (DatagramChannel c : socks) {
+                b.clear();
+                c.send(b, new InetSocketAddress(ifaceMap.get(c).getBroadcast(),
+                        Packet.DISCOVER_UDP_PORT));
+                c.configureBlocking(false);
             }
-            Map<Packet.Tag,byte[]> tags = p.getTagMap();
-            int id = ByteBuffer.wrap(tags.get(Packet.Tag.DEVICE_ID)).getInt();
-            if (deviceId != Packet.DEVICE_ID_WILDCARD
-            &&  deviceId != id) {
-                    throw new IllegalStateException(
-                        "Did not get expected device id: " + id);
+    
+            Selector select = Selector.open();
+            for (DatagramChannel c : socks) {
+                c.register(select, SelectionKey.OP_READ);
             }
-            if (!deviceMap.containsKey(id)) {
-                deviceMap.put(id, new InetAddress[] {
-                        ifaceMap.get(c.socket()).getAddress(),
-                        peer.getAddress() });
+    
+            int results = select.select(250);
+            Set<SelectionKey> keys = select.selectedKeys();
+            Packet p = new Packet();
+            Map<Integer,InetAddress[]> deviceMap =
+                    new HashMap<Integer,InetAddress[]>();
+            for (SelectionKey key : keys) {
+                DatagramChannel c = (DatagramChannel) key.channel();
+                InetSocketAddress peer = (InetSocketAddress) c.receive(
+                        p.buffer());
+                p.parse();
+                if (p.getType() != Packet.Type.DISCOVER_RPY)
+                    throw new TunerException(
+                           "Unexpected response: " + p.getType());
+    
+                Map<Packet.Tag,byte[]> tags = p.getTagMap();
+                int id = ByteBuffer.wrap(
+                        tags.get(Packet.Tag.DEVICE_ID)).getInt();
+                if (deviceId != Packet.DEVICE_ID_WILDCARD
+                &&  deviceId != id) {
+                        throw new TunerException(
+                            "Did not get expected device id: " + id);
+                }
+                if (!deviceMap.containsKey(id)) {
+                    deviceMap.put(id, new InetAddress[] {
+                            ifaceMap.get(c).getAddress(),
+                            peer.getAddress() });
+                }
             }
+            return deviceMap;
         }
-        return deviceMap;
+        catch (SocketException e) {
+            throw new TunerException(e.getMessage(), e);
+        }
+        catch (IOException e) {
+            throw new TunerException(e.getMessage(), e);
+        }
     }
 
     public static void main(String[] args) throws Exception {
