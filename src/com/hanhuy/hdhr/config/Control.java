@@ -7,6 +7,7 @@ import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.Collections;
 import java.util.Set;
 import java.util.HashSet;
@@ -47,32 +48,49 @@ public class Control {
         return set(name, null);
     }
 
-    public void lock() throws TunerException, TunerUnavailableException {
+    public boolean isLocked() throws TunerException {
         if (tuner != null) {
             String key = get("lockkey");
             if ("none".equals(key)) {
-                tuner = null; // not locked, try locking
+                tuner = null;     // not locked, try locking
             } else {
                 int k = (int) Long.parseLong(key);
                 if (lockkey == k) // already locked
-                    return;
-                lockkey = 0; // not locked, try locking
+                    return true;
+                lockkey = 0;      // not locked, try locking
             }
         }
+        return false;
+    }
+    public void lock(Tuner t) throws TunerException, TunerUnavailableException {
+        if (tuner != null && tuner != t) {
+            throw new TunerUnavailableException(
+                    "only control 1 tuner per Control instance; unlock first");
+        }
+        if (isLocked())
+            return;
+
         // Math.abs is a silly workaround for java's lack of %u format
         int key = Math.abs(random.nextInt());
+        set(String.format("/tuner%d/lockkey", t.ordinal()),
+                Integer.toString(key));
+        tuner = t;
+        lockkey = key;
+    }
+    public void lock() throws TunerException, TunerUnavailableException {
+        if (isLocked())
+            return;
+
+        int key;
         for (Tuner t : Tuner.values()) {
             try {
-                set(String.format("/tuner%d/lockkey", t.ordinal()),
-                        Integer.toString(key));
-                tuner = t;
+                lock(t);
                 break;
             }
             catch (TunerErrorException e) { } // probably a locked resource
         }
         if (tuner == null)
             throw new TunerUnavailableException("Unable to lock a tuner");
-        lockkey = key;
     }
 
     public void unlock() throws TunerException {
@@ -152,8 +170,15 @@ public class Control {
                 throw new TunerException("Device not found: " +
                         Integer.toHexString(deviceId));
             }
-            endpoints = deviceId == Packet.DEVICE_ID_WILDCARD ?
-                    devices.get(deviceId) : devices.values().iterator().next();
+            if (deviceId == Packet.DEVICE_ID_WILDCARD) {
+                Iterator<InetAddress[]> i = devices.values().iterator();
+                if (i.hasNext())
+                    endpoints = i.next();
+                else
+                    throw new RuntimeException("No device found");
+            } else {
+                endpoints = devices.get(deviceId);
+            }
 
             c = SocketChannel.open();
             c.socket().setSoTimeout(5000);

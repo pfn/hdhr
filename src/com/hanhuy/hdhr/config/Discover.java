@@ -114,7 +114,7 @@ public class Discover {
 
     public static void main(String[] args) throws Exception {
         Map<Integer,InetAddress[]> deviceMap = discover(
-                Integer.parseInt("10165722", 16));
+                Packet.DEVICE_ID_WILDCARD);
         for (Map.Entry<Integer,InetAddress[]> device : deviceMap.entrySet()) {
             System.out.println("Found device " +
                     Integer.toHexString(device.getKey()) + " at " +
