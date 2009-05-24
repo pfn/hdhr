@@ -243,6 +243,13 @@ public class ChannelScan {
             return status;
         }
     }
+    /**
+     * Order of events:
+     *   scanningChannel,
+     *       foundChannel or skippedChannel,
+     *       if foundChannel:
+     *           programsFound or programsNotFound
+     */
     public interface ScanListener extends EventListener {
         public void scanningChannel(ScanEvent e);
         public void foundChannel(ScanEvent e);
