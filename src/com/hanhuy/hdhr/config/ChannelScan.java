@@ -30,16 +30,27 @@ public class ChannelScan {
             connection.set("channel", "auto:" + c.frequency);
             sleep(250);
 
+            Map<String,String> status = null;
             l.scanningChannel(new ScanEvent(c, map, index));
-            if (!waitForSignal(connection))
+            String lock;
+            try {
+                lock = waitForSignal(connection);
+            }
+            catch (ChannelSkippedException e) {
+                l.skippedChannel(new ScanEvent(c, map, index, e.status));
                 continue;
+            }
 
-            waitForSeq(connection); // timeout ok
+            c.setModulation(lock);
+            status = waitForSeq(connection); // timeout ok
+            l.foundChannel(new ScanEvent(c, map, index, status));
 
             getStreamInfo(connection, c);
             if (c.getPrograms().size() > 0) {
                 availableChannels.add(c);
                 l.programsFound(new ScanEvent(c, map, index));
+            } else {
+                l.programsNotFound(new ScanEvent(c, map, index));
             }
         }
         return availableChannels;
@@ -108,13 +119,27 @@ public class ChannelScan {
                 (!incomplete && System.currentTimeMillis() < change_timeo));
         c.getPrograms().addAll(programs);
     }
-    static boolean waitForSignal(Control connection) throws TunerException {
+    private static class ChannelSkippedException extends Exception {
+        final Map<String,String> status;
+        ChannelSkippedException(Map<String,String> status) {
+            this.status = status;
+        }
+    }
+    /**
+     * @return modulation type (qam64, qam256, 8vsb, etc.), null if none 
+     *         or an unsupported type (ntsc, etc.)
+     * @throws ChannelSkippedException if an unsupported modulation type
+     *         or no modulation type is found.
+     */
+    private static String waitForSignal(Control connection)
+    throws TunerException, ChannelSkippedException {
         long timeo = System.currentTimeMillis() + 2500;
         int ss = 0;
         String lock = null;
+        Map<String,String> stat;
         do {
             String status = connection.get("status");
-            Map<String,String> stat = parseStatus(status);
+            stat = parseStatus(status);
             String ssStr = stat.get("ss");
             ss = Integer.parseInt(ssStr);
             lock = stat.get("lock");
@@ -122,20 +147,28 @@ public class ChannelScan {
         } while (System.currentTimeMillis() < timeo && ss > 45
                 && "none".equals(lock));
 
-        return !"none".equals(lock) && !lock.startsWith("(");
+        lock = !"none".equals(lock) && !lock.startsWith("(") ? lock : null;
+
+        if (lock == null)
+            throw new ChannelSkippedException(stat);
+
+        return lock;
     }
 
     // wait for seq-lock or just timeout, no ill effect
-    static void waitForSeq(Control connection) throws TunerException {
+    static Map<String,String> waitForSeq(Control connection)
+    throws TunerException {
         long timeo = System.currentTimeMillis() + 5000;
         int seq = 0;
+        Map<String,String> stat;
         do {
             String status = connection.get("status");
-            Map<String,String> stat = parseStatus(status);
+            stat = parseStatus(status);
             String seqStr = stat.get("seq");
             seq = Integer.parseInt(seqStr);
             sleep(250);
         }  while (System.currentTimeMillis() < timeo && seq != 100);
+        return stat;
     }
 
     static Map<String,String> parseStatus(String status) {
@@ -165,11 +198,21 @@ public class ChannelScan {
                     e.index, e.map.getChannels().size(), e.channel
                 ));
             }
+            public void skippedChannel(ScanEvent e) {
+                System.out.println("Skipped: " + e.getStatus());
+            }
+            public void foundChannel(ScanEvent e) {
+                System.out.println("Locked: " + e.getStatus());
+            }
             public void programsFound(ScanEvent e) {
                 programs += e.channel.getPrograms().size();
                 for (ChannelMap.Channel.Program p : e.channel.getPrograms())
                     System.out.println(p);
+
                 System.out.println("Total programs so far: " + programs);
+            }
+            public void programsNotFound(ScanEvent e) {
+                System.out.println("No available programs found");
             }
         });
         c.unlock();
@@ -179,19 +222,32 @@ public class ChannelScan {
     public static class ScanEvent extends EventObject {
         public final ChannelMap.Channel channel;
         public final ChannelMap map;
+        private Map<String,String> status;
         /**
          * 1-based
          */
         public final int index;
+        public ScanEvent(ChannelMap.Channel c, ChannelMap m, int i,
+                Map<String,String> status) {
+            this(c, m, i);
+            this.status = status;
+        }
         public ScanEvent(ChannelMap.Channel c, ChannelMap m, int i) {
             super(c);
             channel = c;
             map = m;
             index = i;
         }
+
+        public Map<String,String> getStatus() {
+            return status;
+        }
     }
     public interface ScanListener extends EventListener {
         public void scanningChannel(ScanEvent e);
+        public void foundChannel(ScanEvent e);
+        public void skippedChannel(ScanEvent e);
         public void programsFound(ScanEvent e);
+        public void programsNotFound(ScanEvent e);
     }
 }

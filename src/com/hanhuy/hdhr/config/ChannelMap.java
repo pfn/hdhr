@@ -97,6 +97,7 @@ public class ChannelMap {
     public static class Channel implements Comparable<Channel> {
         private final Set<String> maps;
 
+        private String modulation;
         public final short  number;
         public final int    frequency;
 
@@ -125,6 +126,14 @@ public class ChannelMap {
         }
         public int getPatCRC() {
             return patCRC;
+        }
+
+        public String getModulation() {
+            return modulation;
+        }
+
+        public void setModulation(String mod) {
+            modulation = mod;
         }
 
         public Channel(short number, int frequency, String map) {
