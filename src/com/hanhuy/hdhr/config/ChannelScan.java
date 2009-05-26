@@ -58,8 +58,16 @@ public class ChannelScan {
 
     static void getStreamInfo(Control connection, ChannelMap.Channel c)
     throws TunerException {
-        long timeout = System.currentTimeMillis() + 10000;
-        long change_timeo = System.currentTimeMillis() + 2000;
+        String model = connection.get("/sys/model");
+        long timeout;
+        long change_timeo;
+        if (model.contains("atsc")) {
+            timeout = System.currentTimeMillis() + 4000;
+            change_timeo = System.currentTimeMillis() + 1000;
+        } else {
+            timeout = System.currentTimeMillis() + 10000;
+            change_timeo = System.currentTimeMillis() + 2000;
+        }
         boolean changed = false;
         boolean incomplete;
 
@@ -74,7 +82,8 @@ public class ChannelScan {
             String[] info = streaminfo.split("\\n");
 
             if (changed) {
-                change_timeo = System.currentTimeMillis() + 2000;
+                change_timeo = System.currentTimeMillis() +
+                       (model.contains("atsc") ? 1000 : 2000);
             }
             sleep(250);
 
@@ -85,6 +94,12 @@ public class ChannelScan {
                     String crcStr = line.substring(line.indexOf("x") + 1);
                     int crc = (int) Long.parseLong(crcStr, 16);
                     c.setPatCRC(crc);
+                    continue;
+                }
+                if (line.startsWith("tsid=0x")) {
+                    String crcStr = line.substring(line.indexOf("x") + 1);
+                    int tsid = (int) Long.parseLong(crcStr, 16);
+                    c.setTsID(tsid);
                     continue;
                 }
                 if (line.contains("(no data)")) {

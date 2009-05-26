@@ -194,4 +194,12 @@
       <arg value="svk info | grep ^Revision: | awk '{ print $2 }'"/>
     </exec>
   </target>
+  <target name="run" depends="compile">
+    <java classname="com.hanhuy.hdhr.Main" fork="true">
+      <classpath refid="class.path"/>
+      <classpath path="${build.dir}"/>
+      <classpath path="${src.dir}"/>
+    </java>
+
+  </target>
 </project>

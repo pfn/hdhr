@@ -194,8 +194,12 @@ public class Control {
         }
     }
 
-    public void close() throws IOException {
-        c.close();
+    public void close() {
+        if (c == null) return;
+        try {
+            c.close();
+        }
+        catch (IOException e) { } // ignore
         c = null;
     }
 

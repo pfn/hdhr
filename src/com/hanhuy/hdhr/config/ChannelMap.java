@@ -8,9 +8,11 @@ import java.util.HashMap;
 import java.util.Collections;
 import java.util.Set;
 import java.util.HashSet;
+import java.io.Serializable;
 
-public class ChannelMap {
+public class ChannelMap implements Serializable {
 
+    private final static long serialVersionUID = 200905251503l;
     public final static int FREQUENCY_RESOLUTION = 62500;
     public final String name;
     private List<ChannelRange> ranges = new ArrayList<ChannelRange>();
@@ -78,7 +80,8 @@ public class ChannelMap {
 
     }
 
-    private static class ChannelRange {
+    private static class ChannelRange implements Serializable {
+        private final static long serialVersionUID = 200905251503l;
         private short channelStart;
         private short channelEnd;
         private int   frequencyBase;
@@ -94,7 +97,8 @@ public class ChannelMap {
         }
     }
 
-    public static class Channel implements Comparable<Channel> {
+    public static class Channel implements Comparable<Channel>, Serializable {
+        private final static long serialVersionUID = 200905251503l;
         private final Set<String> maps;
 
         private String modulation;
@@ -103,6 +107,7 @@ public class ChannelMap {
 
         // program association table crc
         private int patCRC;
+        private int tsID;
         private List<Program> programs;
 
         public boolean equals(Object other) {
@@ -128,6 +133,13 @@ public class ChannelMap {
             return patCRC;
         }
 
+        public void setTsID(int id) {
+            tsID = id;
+        }
+        public int getTsID() {
+            return tsID;
+        }
+
         public String getModulation() {
             return modulation;
         }
@@ -151,14 +163,15 @@ public class ChannelMap {
         }
         public String toString() {
             return String.format(
-                    "ch:%3d maps:%s hz:%d", number, maps, frequency);
+                    "hz:%9d ch:%3d %s", frequency, number, maps);
         }
 
         public Set<String> getMaps() {
             return Collections.unmodifiableSet(maps);
         }
 
-        public static class Program {
+        public static class Program implements Serializable {
+            private final static long serialVersionUID = 200905251503l;
             public final Channel channel;
             public final short number;
             public final short virtualMajor;
