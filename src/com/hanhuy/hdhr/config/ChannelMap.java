@@ -174,8 +174,8 @@ public class ChannelMap implements Serializable {
             private final static long serialVersionUID = 200905251503l;
             public final Channel channel;
             public final short number;
-            public final short virtualMajor;
-            public final short virtualMinor;
+            public short virtualMajor;
+            public short virtualMinor;
             private String name = "UNKNOWN";
 
             public Program(Channel c, short number, short major, short minor) {
