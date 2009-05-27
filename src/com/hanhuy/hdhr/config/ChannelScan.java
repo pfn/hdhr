@@ -14,6 +14,11 @@ public class ChannelScan {
     private final static Pattern PROGRAM_PATTERN =
             Pattern.compile("(\\d+): (\\d+)(\\.\\d+)?\\s?(.+)?");
 
+    /**
+     * 5.5mhz impossible channel window
+     */
+    public final static int LOCK_SKIP = 5500000;
+
     public static List<ChannelMap.Channel> scan(
             Control connection, ScanListener l)
     throws TunerException, TunerUnavailableException  {
@@ -24,14 +29,20 @@ public class ChannelScan {
         List<ChannelMap.Channel> channels = map.getChannels();
 
         int index = 0;
+        int nextFrequency = 0;
         for (ChannelMap.Channel c : channels) {
             index++;
 
+            l.scanningChannel(new ScanEvent(c, map, index));
+            if (nextFrequency > c.frequency) {
+                // don't scan, a channel already occupies this space
+                l.skippedChannel(new ScanEvent(c, map, index));
+                continue;
+            }
             connection.set("channel", "auto:" + c.frequency);
             sleep(250);
 
             Map<String,String> status = null;
-            l.scanningChannel(new ScanEvent(c, map, index));
             String lock;
             try {
                 lock = waitForSignal(connection);
@@ -52,6 +63,8 @@ public class ChannelScan {
             } else {
                 l.programsNotFound(new ScanEvent(c, map, index));
             }
+
+            nextFrequency = c.frequency + LOCK_SKIP;
         }
         return availableChannels;
     }
@@ -214,7 +227,9 @@ public class ChannelScan {
                 ));
             }
             public void skippedChannel(ScanEvent e) {
-                System.out.println("Skipped: " + e.getStatus());
+                System.out.println("Skipped: " +
+                        (e.getStatus() != null ?
+                                e.getStatus() : "impossible channel"));
             }
             public void foundChannel(ScanEvent e) {
                 System.out.println("Locked: " + e.getStatus());
