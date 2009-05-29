@@ -29,7 +29,8 @@
   <property name="test.dir" value="test"/>
   <property name="results.dir" value="${test.dir}/results"/>
   <property name="report.dir" value="${test.dir}/report"/>
-  <property name="vlc.dir" value="c:/program files/videolan/vlc"/>
+  <!-- <property name="vlc.dir" value="c:/program files/videolan/vlc"/> -->
+  <property name="vlc.dir" value="c:/vlct"/>
   <property environment="env"/>
 
   <path id="class.path">
@@ -107,6 +108,15 @@
     </antcall>
     <antcall target="signjar">
       <param name="src" value="${common.ui.dist.dir}/hanhuy-common-ui.jar"/>
+    </antcall>
+    <antcall target="signjar">
+      <param name="src" value="/home/pfnguyen/vlc.jar"/>
+    </antcall>
+    <antcall target="signjar">
+      <param name="src" value="${lib.dir}/jna-3.1.0.jar"/>
+    </antcall>
+    <antcall target="signjar">
+      <param name="src" value="${lib.dir}/jvlc-core-1.0.0-SNAPSHOT.jar"/>
     </antcall>
   </target>
 
@@ -197,7 +207,6 @@
   </target>
   <target name="run" depends="compile">
     <java classname="com.hanhuy.hdhr.Main" fork="true">
-      <sysproperty key="java.library.path" value="${vlc.dir}"/>
       <sysproperty key="jna.library.path" value="${vlc.dir}"/>
       <classpath refid="class.path"/>
       <classpath path="${build.dir}"/>

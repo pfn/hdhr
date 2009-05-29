@@ -22,6 +22,7 @@ import org.videolan.jvlc.internal.LibVlc.LibVlcMediaPlayer;
 import org.videolan.jvlc.internal.LibVlc.LibVlcMedia;
 
 import com.sun.jna.Native;
+import com.sun.jna.Platform;
 
 public class ProgramCard extends ResourceBundleForm
 implements TreeSelectionListener {
@@ -34,6 +35,7 @@ implements TreeSelectionListener {
     private LibVlcInstance instance;
     private Control device;
     private final Canvas c;
+    private String libraryPath;
 
     private ProgramCard() {
         card = new JPanel();
@@ -43,16 +45,29 @@ implements TreeSelectionListener {
         c.setBackground(Color.black);
         card.add(c, "canvas");
 
-        libvlc = LibVlc.SYNC_INSTANCE;
 
+        boolean isJWS = System.getProperty("javawebstart.version") != null;
+
+        if (isJWS) {
+            libraryPath = Native.getWebStartLibraryPath("libvlc");
+            System.setProperty("jna.library.path", libraryPath);
+        }
+        libvlc = LibVlc.SYNC_INSTANCE;
     }
 
     private void setProgram(Tuner t, Program program) {
         final libvlc_exception_t ex = new libvlc_exception_t();
 
+        String pluginPath = libraryPath != null ?
+                libraryPath : "c:\\Program Files\\VideoLAN\\vlc";
         String[] vlc_args = { "-I", "dummy", "--ignore-config",
-                "--plugin-path", "c:\\program files\\videolan\\vlc",
+                "--plugin-path", libraryPath,
                 "--no-overlay",
+                "--no-video-title-show",
+                "--no-osd",
+                "--quiet", "1",
+                "--verbose", "0",
+                "--mouse-hide-timeout", "100",
                 "--deinterlace-mode", "linear",
                 "--video-filter=deinterlace" };
         instance = libvlc.libvlc_new(vlc_args.length, vlc_args, ex);
@@ -87,9 +102,16 @@ implements TreeSelectionListener {
 
         Main.cards.show(Main.cardPane, CARD_NAME);
 
-        long drawable = Native.getComponentID(c);
-        libvlc.libvlc_media_player_set_drawable(player, (int)drawable, ex);
-        raise(ex);
+        { // set_drawable only works properly on 32bit
+            long drawable = Native.getComponentID(c);
+            libvlc.libvlc_media_player_set_drawable(player, (int)drawable, ex);
+            raise(ex);
+        }
+        // vlc 1.0 will deprecate the above api
+        if (Platform.isWindows()) {
+        } else if (Platform.isX11()) {
+        } else if (Platform.isMac()) {
+        }
 
         libvlc.libvlc_media_player_play(player, ex);
         raise(ex);
@@ -105,16 +127,18 @@ implements TreeSelectionListener {
             stopPlayer();
         }
     }
-    private void stopPlayer() {
-        final libvlc_exception_t ex = new libvlc_exception_t();
+    void stopPlayer() {
+        libvlc_exception_t ex = null;
 
         if (player != null) {
+            ex = new libvlc_exception_t();
             libvlc.libvlc_media_player_stop(player, ex);
             libvlc.libvlc_media_player_release(player);
         }
         if (device != null) {
             try {
                 device.set("target", "none");
+                device.set("channel", "none");
                 device.unlock();
             }
             catch (TunerException e) { }
@@ -133,7 +157,7 @@ implements TreeSelectionListener {
     }
 
     private void raise(LibVlc.libvlc_exception_t ex) {
-        if (ex.raised != 0) {
+        if (ex != null && ex.raised != 0) {
             System.out.println(ex.code);
             System.out.println(ex.message);
             System.exit(1);

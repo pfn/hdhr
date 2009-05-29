@@ -21,6 +21,8 @@ import java.awt.BorderLayout;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowAdapter;
 import java.awt.Color;
 import java.util.List;
 import java.util.ArrayList;
@@ -72,9 +74,7 @@ public class Main extends ResourceBundleForm implements Runnable {
         menu.add(new RunnableAction("Exit", KeyEvent.VK_X, "control X",
                 new Runnable() {
             public void run() {
-                frame.setVisible(false);
-                frame.dispose();
-                System.exit(0);
+                exit();
             }
         }));
         menubar.add(menu);
@@ -116,10 +116,24 @@ public class Main extends ResourceBundleForm implements Runnable {
 
         frame.add(split);
 
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                exit();
+            }
+        });
         frame.pack();
         Util.centerWindow(frame);
         frame.setVisible(true);
+    }
+
+    void exit() {
+        frame.setVisible(false);
+        frame.dispose();
+
+        ProgramCard.INSTANCE.stopPlayer();
+        System.exit(0);
     }
 
 }

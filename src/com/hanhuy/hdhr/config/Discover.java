@@ -76,40 +76,45 @@ public class Discover {
             }
     
             Selector select = Selector.open();
+            long timeout = System.currentTimeMillis() + 250;
             for (DatagramChannel c : socks) {
                 c.register(select, SelectionKey.OP_READ);
             }
-    
-            int results = select.select(250);
-            Set<SelectionKey> keys = select.selectedKeys();
-            Packet p = new Packet();
             Map<Integer,InetAddress[]> deviceMap =
                     new HashMap<Integer,InetAddress[]>();
-            for (SelectionKey key : keys) {
-                DatagramChannel c = (DatagramChannel) key.channel();
-                InetSocketAddress peer = (InetSocketAddress) c.receive(
-                        p.buffer());
-                p.parse();
-                if (p.getType() != Packet.Type.DISCOVER_RPY)
-                    throw new TunerException(
-                           "Unexpected response: " + p.getType());
-    
-                Map<Packet.Tag,byte[]> tags = p.getTagMap();
-                int id = ByteBuffer.wrap(
-                        tags.get(Packet.Tag.DEVICE_ID)).getInt();
-                if (deviceId != Packet.DEVICE_ID_WILDCARD
-                &&  deviceId != id) {
+
+            while (System.currentTimeMillis() < timeout) {
+                int results = select.select(250);
+                Set<SelectionKey> keys = select.selectedKeys();
+                Packet p = new Packet();
+                for (SelectionKey key : keys) {
+                    DatagramChannel c = (DatagramChannel) key.channel();
+                    ByteBuffer buf = p.buffer();
+                    InetSocketAddress peer = (InetSocketAddress) c.receive(buf);
+                    if (buf.position() == 0) continue;
+                    p.parse();
+                    if (p.getType() != Packet.Type.DISCOVER_RPY)
                         throw new TunerException(
-                            "Did not get expected device id: " + id);
+                               "Unexpected response: " + p.getType());
+        
+                    Map<Packet.Tag,byte[]> tags = p.getTagMap();
+                    int id = ByteBuffer.wrap(
+                            tags.get(Packet.Tag.DEVICE_ID)).getInt();
+                    if (deviceId != Packet.DEVICE_ID_WILDCARD
+                    &&  deviceId != id) {
+                            throw new TunerException(
+                                "Did not get expected device id: " + id);
+                    }
+                    if (!deviceMap.containsKey(id)) {
+                        deviceMap.put(id, new InetAddress[] {
+                                ifaceMap.get(c).getAddress(),
+                                peer.getAddress() });
+                        timeout = System.currentTimeMillis() + 250;
+                    }
                 }
-                if (!deviceMap.containsKey(id)) {
-                    deviceMap.put(id, new InetAddress[] {
-                            ifaceMap.get(c).getAddress(),
-                            peer.getAddress() });
-                }
+                if (deviceId != Packet.DEVICE_ID_WILDCARD)
+                    devices.put(deviceId, deviceMap.get(deviceId));
             }
-            if (deviceId != Packet.DEVICE_ID_WILDCARD)
-                devices.put(deviceId, deviceMap.get(deviceId));
             return deviceMap;
         }
         catch (SocketException e) {

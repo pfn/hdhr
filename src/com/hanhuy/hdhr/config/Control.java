@@ -39,6 +39,7 @@ public class Control {
     private int lockkey = 0;
     private Random random = new Random();
     private Tuner tuner;
+    private int connectedId;
 
     public Tuner getTuner() throws TunerUnavailableException {
         if (tuner == null)
@@ -161,9 +162,10 @@ public class Control {
      * Connect to the specified deviceId.  If deviceId is
      * Packet.DEVICE_ID_WILDCARD then connect to the first device returned.
      */
-    public void connect(int deviceId) throws TunerException {
+    public int connect(int deviceId) throws TunerException {
+        connectedId = deviceId;
         if (c != null)
-            return;
+            return connectedId;
         try {
             Map<Integer, InetAddress[]> devices = Discover.discover(deviceId);
             InetAddress[] endpoints;
@@ -172,10 +174,13 @@ public class Control {
                         Integer.toHexString(deviceId));
             }
             if (deviceId == Packet.DEVICE_ID_WILDCARD) {
-                Iterator<InetAddress[]> i = devices.values().iterator();
-                if (i.hasNext())
-                    endpoints = i.next();
-                else
+                Iterator<Map.Entry<Integer,InetAddress[]>> i =
+                        devices.entrySet().iterator();
+                if (i.hasNext()) {
+                    Map.Entry<Integer,InetAddress[]> e = i.next();
+                    connectedId = e.getKey();
+                    endpoints = e.getValue();
+                } else
                     throw new RuntimeException("No device found");
             } else {
                 endpoints = devices.get(deviceId);
@@ -193,6 +198,7 @@ public class Control {
         catch (IOException e) {
             throw new TunerException(e.getMessage(), e);
         }
+        return connectedId;
     }
 
     public void close() {

@@ -55,22 +55,24 @@ public class ChannelScan {
             status = waitForSeq(connection); // timeout ok
             l.foundChannel(new ScanEvent(c, map, index, status));
 
-            getStreamInfo(connection, c);
+            String streaminfo = getStreamInfo(connection, c);
             if (c.getPrograms().size() > 0) {
                 availableChannels.add(c);
-                l.programsFound(new ScanEvent(c, map, index));
+                l.programsFound(new ScanEvent(c, map, index, streaminfo));
             } else {
-                l.programsNotFound(new ScanEvent(c, map, index));
+                l.programsNotFound(new ScanEvent(c, map, index, streaminfo));
             }
 
             nextFrequency = c.frequency + LOCK_SKIP;
         }
+        connection.set("channel", "none");
         return availableChannels;
     }
 
-    static void getStreamInfo(Control connection, ChannelMap.Channel c)
+    static String getStreamInfo(Control connection, ChannelMap.Channel c)
     throws TunerException {
         String model = connection.get("/sys/model");
+        String streaminfo;
         long timeout;
         long change_timeo;
         if (model.contains("atsc")) {
@@ -90,7 +92,7 @@ public class ChannelScan {
             int encrypted = 0;
             programs.clear();
             incomplete = false;
-            String streaminfo = connection.get("streaminfo");
+            streaminfo = connection.get("streaminfo");
             String[] info = streaminfo.split("\\n");
 
             if (changed) {
@@ -145,6 +147,7 @@ public class ChannelScan {
         } while (System.currentTimeMillis() < timeout &&
                 (!incomplete && System.currentTimeMillis() < change_timeo));
         c.getPrograms().addAll(programs);
+        return streaminfo;
     }
     private static class ChannelSkippedException extends Exception {
         final Map<String,String> status;
@@ -204,8 +207,9 @@ public class ChannelScan {
     }
     public static void main(String[] args) throws Exception {
         Control c = new Control();
-        c.connect(Packet.DEVICE_ID_WILDCARD);
+        int id = c.connect(Packet.DEVICE_ID_WILDCARD);
         c.lock();
+        System.out.println("Connected to device " + Integer.toHexString(id));
         System.out.println("Locked tuner: " + c.getTuner());
         scan(c, new ScanListener() {
             int programs = 0;
@@ -225,12 +229,16 @@ public class ChannelScan {
             }
             public void programsFound(ScanEvent e) {
                 programs += e.channel.getPrograms().size();
+                System.out.println("BEGIN STREAMINFO:\n" + e.streaminfo +
+                        ":END STREAMINFO");
                 for (ChannelMap.Channel.Program p : e.channel.getPrograms())
                     System.out.println(p);
 
                 System.out.println("Total programs so far: " + programs);
             }
             public void programsNotFound(ScanEvent e) {
+                System.out.println("BEGIN STREAMINFO:" + e.streaminfo +
+                        ":END STREAMINFO");
                 System.out.println("No available programs found");
             }
         });
@@ -241,6 +249,7 @@ public class ChannelScan {
     public static class ScanEvent extends EventObject {
         public final ChannelMap.Channel channel;
         public final ChannelMap map;
+        public final String streaminfo;
         private Map<String,String> status;
         /**
          * 1-based
@@ -248,14 +257,19 @@ public class ChannelScan {
         public final int index;
         public ScanEvent(ChannelMap.Channel c, ChannelMap m, int i,
                 Map<String,String> status) {
-            this(c, m, i);
+            this(c, m, i, (String) null);
             this.status = status;
         }
         public ScanEvent(ChannelMap.Channel c, ChannelMap m, int i) {
+            this(c, m, i, (String) null);
+        }
+        public ScanEvent(
+                ChannelMap.Channel c, ChannelMap m, int i, String streaminfo) {
             super(c);
             channel = c;
             map = m;
             index = i;
+            this.streaminfo = streaminfo;
         }
 
         public Map<String,String> getStatus() {
