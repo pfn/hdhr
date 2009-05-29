@@ -114,7 +114,7 @@ public class Lineup {
             catch (IOException e) { }
         }
     }
-    public List<String> getDatabaseIDs() throws IOException {
+    public String[] getDatabaseIDs() throws IOException {
         fetch();
         String[] databases;
         try {
@@ -135,7 +135,7 @@ public class Lineup {
         catch (XPathExpressionException e) {
             throw new IllegalStateException(e);
         }
-        return Arrays.asList(databases);
+        return databases;
     }
 
     public String getDisplayName(String id) {
@@ -217,7 +217,7 @@ public class Lineup {
 
         Lineup l = new Lineup("US:95051");
         long start = System.currentTimeMillis();
-        String id = l.getDatabaseIDs().get(1);
+        String id = l.getDatabaseIDs()[1];
         System.out.println("get ms: " + (System.currentTimeMillis() - start));
 
         int match = 0;
@@ -226,6 +226,11 @@ public class Lineup {
             for (Program program : programs) {
                 if (l.applyProgramSettings(id, program))
                     match++;
+                else {
+                    program.virtualMajor = 0;
+                    program.virtualMinor = 0;
+                    program.setName("UNKNOWN");
+                }
                 System.out.println(program);
             }
         }

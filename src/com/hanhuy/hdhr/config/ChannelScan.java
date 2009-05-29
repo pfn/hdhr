@@ -3,7 +3,6 @@ package com.hanhuy.hdhr.config;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.EventListener;
@@ -167,7 +166,7 @@ public class ChannelScan {
         Map<String,String> stat;
         do {
             String status = connection.get("status");
-            stat = parseStatus(status);
+            stat = Control.parseStatus(status);
             String ssStr = stat.get("ss");
             ss = Integer.parseInt(ssStr);
             lock = stat.get("lock");
@@ -191,22 +190,12 @@ public class ChannelScan {
         Map<String,String> stat;
         do {
             String status = connection.get("status");
-            stat = parseStatus(status);
+            stat = Control.parseStatus(status);
             String seqStr = stat.get("seq");
             seq = Integer.parseInt(seqStr);
             sleep(250);
         }  while (System.currentTimeMillis() < timeo && seq != 100);
         return stat;
-    }
-
-    static Map<String,String> parseStatus(String status) {
-        Map<String,String> m = new HashMap<String,String>();
-        String[] elem = status.split(" ");
-        for (String s : elem) {
-            String[] vals = s.split("=");
-            m.put(vals[0], vals[1]);
-        }
-        return m;
     }
 
     private static void sleep(int time) {

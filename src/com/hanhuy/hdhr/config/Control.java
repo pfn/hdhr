@@ -12,6 +12,7 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.Random; // don't need secure
 
 public class Control {
@@ -201,6 +202,20 @@ public class Control {
         }
         catch (IOException e) { } // ignore
         c = null;
+    }
+
+    /**
+     * Utility method for splitting a status string out
+     * @return a Map with keys ch, lock, ss, snq, seq, bps and pps
+     */
+    public static Map<String,String> parseStatus(String status) {
+        Map<String,String> m = new HashMap<String,String>();
+        String[] elem = status.split(" ");
+        for (String s : elem) {
+            String[] vals = s.split("=");
+            m.put(vals[0], vals[1]);
+        }
+        return m;
     }
 
     public static void main(String[] args) throws Exception {

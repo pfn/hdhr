@@ -20,9 +20,12 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.Arrays;
 import java.util.Set;
+import java.util.Collections;
 
 public class Discover {
 
+    private final static Map<Integer,InetAddress[]> devices =
+            new HashMap<Integer,InetAddress[]>();
     public static Map<Integer,InetAddress[]> discover() throws TunerException {
         return discover(Packet.DEVICE_ID_WILDCARD);
     }
@@ -33,6 +36,9 @@ public class Discover {
      */
     public static Map<Integer,InetAddress[]> discover(int deviceId)
     throws TunerException {
+        if (devices.containsKey(deviceId))
+            return Collections.singletonMap(deviceId, devices.get(deviceId));
+
         try {
             Enumeration<NetworkInterface> ifaces =
                     NetworkInterface.getNetworkInterfaces();
@@ -102,6 +108,8 @@ public class Discover {
                             peer.getAddress() });
                 }
             }
+            if (deviceId != Packet.DEVICE_ID_WILDCARD)
+                devices.put(deviceId, deviceMap.get(deviceId));
             return deviceMap;
         }
         catch (SocketException e) {

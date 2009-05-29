@@ -6,6 +6,8 @@ import com.hanhuy.hdhr.treemodel.Device;
 import com.hanhuy.hdhr.config.Control;
 import com.hanhuy.hdhr.config.TunerException;
 
+import java.awt.EventQueue;
+
 import javax.swing.JPanel;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -27,6 +29,8 @@ implements TreeSelectionListener {
     private JLabel copyright = new JLabel();
     private JLabel debug     = new JLabel();
 
+    private Device lastDevice;
+
     private DeviceInfoCard() {
         card = new JPanel();
         card.setLayout(createLayoutManager());
@@ -39,6 +43,7 @@ implements TreeSelectionListener {
         card.add(version,   "version");
         card.add(copyright, "copyright");
         card.add(debug,     "debug");
+
     }
 
     public void setDevice(Device d) {
@@ -56,6 +61,8 @@ implements TreeSelectionListener {
             debug.setText("<html><pre>" + device.get("/sys/debug"));
         }
         catch (TunerException e) {
+            lastDevice = null;
+            e.printStackTrace();
             JOptionPane.showMessageDialog(Main.frame, e.getMessage());
         }
         finally {
@@ -63,11 +70,46 @@ implements TreeSelectionListener {
         }
     }
 
+    private RepeatingTask task = null;
     public void valueChanged(TreeSelectionEvent e) {
         Object item = e.getPath().getLastPathComponent();
         if (item instanceof Device) {
-            setDevice((Device) item);
+            lastDevice = (Device) item;
+            stopThread();
+            task = new RepeatingTask();
+            new Thread(task, "DeviceInfoCard").start();
             Main.cards.show(Main.cardPane, CARD_NAME);
+        } else {
+            stopThread();
+        }
+    }
+    private void stopThread() {
+        if (task != null) {
+            synchronized (task) {
+                task.shutdown = true;
+                task.notify();
+            }
+        }
+    }
+
+    class RepeatingTask implements Runnable {
+        public boolean shutdown = false;
+        public void run() {
+            synchronized (this) {
+                while (!shutdown && lastDevice != null) {
+                    EventQueue.invokeLater(new Runnable() {
+                        public void run() {
+                            setDevice(lastDevice);
+                        }
+                    });
+                    try {
+                        wait(60 * 1000);
+                    }
+                    catch (InterruptedException e) {
+                        shutdown = true;
+                    }
+                }
+            }
         }
     }
 }

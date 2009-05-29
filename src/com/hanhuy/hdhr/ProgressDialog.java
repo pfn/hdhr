@@ -25,14 +25,16 @@ public class ProgressDialog extends ResourceBundleForm {
         this(parent, null);
     }
     public ProgressDialog(Frame parent, String title) {
-        dialog = new JDialog(parent, title, true);
         this.parent = parent;
+        dialog = new JDialog(parent, title, true);
+        dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
         bar = new JProgressBar();
         Dimension d = bar.getPreferredSize();
-        d.width = 180;
+        d.width = 320;
         bar.setPreferredSize(d);
 
-        dialog.add(bar);
+        dialog.setLayout(createLayoutManager());
+        dialog.add(bar, "progressbar");
     }
     public void showProgress(final Runnable r) {
         bar.setIndeterminate(true);
@@ -52,8 +54,10 @@ public class ProgressDialog extends ResourceBundleForm {
                     });
                 }
             }
-        });
+        }, "ProgressDialog");
         t.start();
-        show(dialog, parent);
+        dialog.pack();
+        Util.centerWindow(parent, dialog);
+        dialog.setVisible(true);
     }
 }
