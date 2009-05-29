@@ -29,6 +29,7 @@
   <property name="test.dir" value="test"/>
   <property name="results.dir" value="${test.dir}/results"/>
   <property name="report.dir" value="${test.dir}/report"/>
+  <property name="vlc.dir" value="c:/program files/videolan/vlc"/>
   <property environment="env"/>
 
   <path id="class.path">
@@ -196,6 +197,8 @@
   </target>
   <target name="run" depends="compile">
     <java classname="com.hanhuy.hdhr.Main" fork="true">
+      <sysproperty key="java.library.path" value="${vlc.dir}"/>
+      <sysproperty key="jna.library.path" value="${vlc.dir}"/>
       <classpath refid="class.path"/>
       <classpath path="${build.dir}"/>
       <classpath path="${src.dir}"/>
