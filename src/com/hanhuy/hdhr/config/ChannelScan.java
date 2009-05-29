@@ -32,10 +32,15 @@ public class ChannelScan {
         for (ChannelMap.Channel c : channels) {
             index++;
 
+            ScanEvent e = new ScanEvent(c, map, index);
             l.scanningChannel(new ScanEvent(c, map, index));
+            if (e.cancelled)
+                break;
             if (nextFrequency > c.frequency) {
                 // don't scan, a channel already occupies this space
-                l.skippedChannel(new ScanEvent(c, map, index));
+                l.skippedChannel(e);
+                if (e.cancelled)
+                    break;
                 continue;
             }
             connection.set("channel", "auto:" + c.frequency);
@@ -46,22 +51,31 @@ public class ChannelScan {
             try {
                 lock = waitForSignal(connection);
             }
-            catch (ChannelSkippedException e) {
-                l.skippedChannel(new ScanEvent(c, map, index, e.status));
+            catch (ChannelSkippedException ex) {
+                e = new ScanEvent(c, map, index, ex.status);
+                l.skippedChannel(e);
+                if (e.cancelled)
+                    break;
                 continue;
             }
 
             c.setModulation(lock);
             status = waitForSeq(connection); // timeout ok
-            l.foundChannel(new ScanEvent(c, map, index, status));
+            e = new ScanEvent(c, map, index, status);
+            l.foundChannel(e);
+            if (e.cancelled)
+                break;
 
             String streaminfo = getStreamInfo(connection, c);
+            e = new ScanEvent(c, map, index, streaminfo);
             if (c.getPrograms().size() > 0) {
                 availableChannels.add(c);
-                l.programsFound(new ScanEvent(c, map, index, streaminfo));
+                l.programsFound(e);
             } else {
-                l.programsNotFound(new ScanEvent(c, map, index, streaminfo));
+                l.programsNotFound(e);
             }
+            if (e.cancelled)
+                break;
 
             nextFrequency = c.frequency + LOCK_SKIP;
         }
@@ -95,11 +109,11 @@ public class ChannelScan {
             streaminfo = connection.get("streaminfo");
             String[] info = streaminfo.split("\\n");
 
+            sleep(250);
             if (changed) {
                 change_timeo = System.currentTimeMillis() +
                        (model.contains("atsc") ? 1000 : 2000);
             }
-            sleep(250);
 
             for (String line : info) {
                 Matcher m = PROGRAM_PATTERN.matcher(line);
@@ -145,7 +159,7 @@ public class ChannelScan {
             changed = encrypted + programs.size() != program_count;
             program_count = programs.size() + encrypted;
         } while (System.currentTimeMillis() < timeout &&
-                (!incomplete && System.currentTimeMillis() < change_timeo));
+                (incomplete || System.currentTimeMillis() < change_timeo));
         c.getPrograms().addAll(programs);
         return streaminfo;
     }
@@ -251,6 +265,7 @@ public class ChannelScan {
         public final ChannelMap map;
         public final String streaminfo;
         private Map<String,String> status;
+        private boolean cancelled = false;
         /**
          * 1-based
          */
@@ -274,6 +289,10 @@ public class ChannelScan {
 
         public Map<String,String> getStatus() {
             return status;
+        }
+
+        public void cancelScan() {
+            cancelled = true;
         }
     }
     /**

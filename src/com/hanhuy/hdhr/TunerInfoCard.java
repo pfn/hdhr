@@ -83,8 +83,9 @@ implements TreeSelectionListener {
             Color red    = new Color(0xFF, 0, 0);
             Color yellow = new Color(0xFF, 0xCC, 0);
             Color green  = new Color(0, 0xAA, 0);
-            if (Arrays.asList("8vsb", "t8", "t7", "t6").contains(
-                    status.get("lock"))) {
+            if ("8vsb".equals(status.get("lock")) ||
+                    Arrays.asList("t8", "t7", "t6").contains(
+                    status.get("lock").substring(0, 2))) {
                 if (ss >= 75) // -30dBmV
                     ssColor = green;
                 else if (ss >= 50) // -15dBmV

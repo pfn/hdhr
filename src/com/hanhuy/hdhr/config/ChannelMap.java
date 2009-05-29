@@ -78,6 +78,21 @@ public class ChannelMap implements Serializable {
         map.submaps.add(channelmaps.get("us-hrc"));
         channelmaps.put(map.name, map);
 
+        map = new ChannelMap("eu-bcast");
+        map.ranges.addAll(Arrays.asList(
+            new ChannelRange( 2,   4,  50500000, 7000000),
+            new ChannelRange( 5,  12, 177500000, 7000000),
+            //new ChannelRange(21,  69, 474000000, 8000000)
+            new ChannelRange(21,  69, 473750000, 8000000)
+        ));
+        channelmaps.put(map.name, map);
+
+        map = new ChannelMap("eu-cable");
+        map.ranges.addAll(Arrays.asList(
+            new ChannelRange(6,   7, 113000000, 8000000),
+            new ChannelRange(9, 100, 138000000, 8000000)
+        ));
+        channelmaps.put(map.name, map);
     }
 
     private static class ChannelRange implements Serializable {

@@ -1,6 +1,7 @@
 package com.hanhuy.hdhr;
 
 import com.hanhuy.common.ui.ResourceBundleForm;
+import com.hanhuy.hdhr.config.Discover;
 import com.hanhuy.hdhr.config.Control;
 import com.hanhuy.hdhr.config.TunerException;
 import com.hanhuy.hdhr.config.ChannelMap.Channel.Program;
@@ -8,6 +9,8 @@ import com.hanhuy.hdhr.treemodel.Tuner;
 
 import java.awt.Canvas;
 import java.awt.Color;
+import java.util.Map;
+import java.net.InetAddress;
 
 import javax.swing.JPanel;
 import javax.swing.JLabel;
@@ -81,12 +84,15 @@ implements TreeSelectionListener {
         device = new Control();
         try {
             device.connect(t.device.id);
+            Map<Integer,InetAddress[]> devices = Discover.discover(t.device.id);
+            InetAddress[] endpoints = devices.get(t.device.id);
+            String ip = endpoints[0].getHostAddress();
             device.lock(t.tuner);
             device.set("channel",
                     program.channel.getModulation() + ":" +
                     program.channel.number);
             device.set("program", Integer.toString(program.number));
-            device.set("target", "udp://192.168.9.4:5000");
+            device.set("target", "udp://" + ip + ":5000");
         }
         catch (TunerException e) {
             JOptionPane.showMessageDialog(Main.frame, e.getMessage());
@@ -138,7 +144,6 @@ implements TreeSelectionListener {
         if (device != null) {
             try {
                 device.set("target", "none");
-                device.set("channel", "none");
                 device.unlock();
             }
             catch (TunerException e) { }
