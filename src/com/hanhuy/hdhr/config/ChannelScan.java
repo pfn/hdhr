@@ -89,13 +89,13 @@ public class ChannelScan {
         String streaminfo;
         long timeout;
         long change_timeo;
-        if (model.contains("atsc")) {
-            timeout = System.currentTimeMillis() + 4000;
-            change_timeo = System.currentTimeMillis() + 1000;
-        } else {
+//        if (model.contains("atsc")) {
+//            timeout = System.currentTimeMillis() + 4000;
+//            change_timeo = System.currentTimeMillis() + 1000;
+//        } else {
             timeout = System.currentTimeMillis() + 10000;
             change_timeo = System.currentTimeMillis() + 2000;
-        }
+//        }
         boolean changed = false;
         boolean incomplete;
 
@@ -106,13 +106,13 @@ public class ChannelScan {
             int encrypted = 0;
             programs.clear();
             incomplete = false;
+            sleep(250);
             streaminfo = connection.get("streaminfo");
             String[] info = streaminfo.split("\\n");
 
-            sleep(250);
             if (changed) {
-                change_timeo = System.currentTimeMillis() +
-                       (model.contains("atsc") ? 1000 : 2000);
+                change_timeo = System.currentTimeMillis() + 2000;
+//                       (model.contains("atsc") ? 1000 : 2000);
             }
 
             for (String line : info) {

@@ -100,7 +100,7 @@ public class Main extends ResourceBundleForm implements Runnable {
         JScrollPane pane = new JScrollPane(tree,
                 ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
                 ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
-        pane.setPreferredSize(new Dimension(240, 540));
+        pane.setPreferredSize(new Dimension(320, 540));
         split.setTopComponent(pane);
 
         cards    = new CardLayout();
@@ -152,7 +152,7 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
                 if (p != null && p.size() > 0) {
                     int r = JOptionPane.showConfirmDialog(
                             Main.frame, "<html><p>" +
-                            "Performing a channel scan will reset the " +
+                            "Performing a channel scan will delete the " +
                             "previously configured channels, continue?",
                             "Re-scan channels", JOptionPane.YES_NO_OPTION);
                     if (r != JOptionPane.YES_OPTION)
@@ -160,7 +160,28 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
                 }
                 ProgressDialog d = new ProgressDialog(
                         Main.frame, "Scanning");
-                d.showProgress(new ScanningRunnable(t));
+                try {
+                    d.showProgress(new ScanningRunnable(t));
+                }
+                catch (ArrayIndexOutOfBoundsException e) {
+/* seem to hit some sort of bug here:
+Exception in thread "AWT-EventQueue-0" java.lang.IndexOutOfBoundsException: Index: 1, Size: 1
+        at java.util.ArrayList.RangeCheck(Unknown Source)
+        at java.util.ArrayList.get(Unknown Source)
+        at java.awt.Container.createHierarchyEvents(Unknown Source)
+        at java.awt.Container.createHierarchyEvents(Unknown Source)
+        at java.awt.Container.createHierarchyEvents(Unknown Source)
+        at java.awt.Container.createHierarchyEvents(Unknown Source)
+        at java.awt.Dialog.conditionalShow(Unknown Source)
+        at java.awt.Dialog.show(Unknown Source)
+        at java.awt.Component.show(Unknown Source)
+        at java.awt.Component.setVisible(Unknown Source)
+        at java.awt.Window.setVisible(Unknown Source)
+        at java.awt.Dialog.setVisible(Unknown Source)                    
+        at com.hanhuy.hdhr.ProgressDialog.showProgress(ProgressDialog.java:61)
+*/
+                    return;
+                }
                 JOptionPane.showMessageDialog(Main.frame,
                         "Found " + t.programs.size() + " programs");
             }
@@ -345,9 +366,10 @@ class ScanningRunnable implements ProgressAwareRunnable {
             });
             device.unlock();
 
+            Main.model.programMap.remove(t);
             t.programs.clear();
             t.programs.addAll(programs);
-            Main.model.programMap.put(t, programs);
+            Main.model.programMap.put(t, t.programs);
             Main.model.fireTreeStructureChanged(new Object[] {
                     DeviceTreeModel.ROOT_NODE, t.device, t });
         }

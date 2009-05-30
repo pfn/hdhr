@@ -9,9 +9,13 @@ import com.hanhuy.hdhr.treemodel.Tuner;
 
 import java.awt.Canvas;
 import java.awt.Color;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseAdapter;
 import java.util.Map;
 import java.net.InetAddress;
 
+import javax.swing.JPopupMenu;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -45,6 +49,25 @@ implements TreeSelectionListener {
         card.setLayout(createLayoutManager());
 
         c = new Canvas();
+
+        final JPopupMenu popup = new JPopupMenu();
+        popup.add(new JMenuItem("Full screen"));
+        c.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                maybeShowPopup(e);
+            }
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                maybeShowPopup(e);
+            }
+
+            private void maybeShowPopup(MouseEvent e) {
+                if (e.isPopupTrigger()) {
+                    popup.show(e.getComponent(), e.getX(), e.getY());
+                }
+            }
+        });
         c.setBackground(Color.black);
         card.add(c, "canvas");
 
