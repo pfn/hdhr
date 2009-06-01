@@ -27,6 +27,12 @@ import java.awt.Color;
 import java.util.List;
 import java.util.ArrayList;
 
+import javax.swing.ToolTipManager;
+import javax.swing.JProgressBar;
+import javax.swing.JToolBar;
+import javax.swing.JSlider;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.JRadioButton;
 import javax.swing.ButtonGroup;
 import javax.swing.JLabel;
@@ -43,6 +49,7 @@ import javax.swing.JPopupMenu;
 import javax.swing.JOptionPane;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
+import javax.swing.DefaultBoundedRangeModel;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.event.TreeSelectionEvent;
 import javax.swing.event.TreeSelectionListener;
@@ -53,6 +60,8 @@ public class Main extends ResourceBundleForm implements Runnable {
     public static JPanel cardPane;
 
     static DeviceTreeModel model = new DeviceTreeModel();
+
+    static JProgressBar ssBar, seqBar, snqBar;
 
     public static void main(String[] args) throws Exception {
         UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
@@ -123,6 +132,65 @@ public class Main extends ResourceBundleForm implements Runnable {
                 exit();
             }
         });
+
+        JPanel topPane = new JPanel();
+        topPane.setLayout(new BoxLayout(topPane, BoxLayout.X_AXIS));
+        //JToolBar bar = new JToolBar();
+//        bar.setFloatable(false);
+//        bar.add(new RunnableAction("Test", new Runnable() {
+//            public void run() {
+//                System.out.println("OOH!");
+//            }
+//        }));
+//        topPane.add(bar);
+        topPane.add(Box.createHorizontalGlue());
+
+        ssBar = new JProgressBar();
+        ssBar.setStringPainted(true);
+        ssBar.setString("SS:");
+        ssBar.setMaximumSize(new Dimension(120, 20));
+        topPane.add(ssBar);
+        ssBar.setVisible(false);
+        topPane.add(Box.createHorizontalStrut(5));
+
+        snqBar = new JProgressBar();
+        snqBar.setStringPainted(true);
+        snqBar.setString("SNQ:");
+        snqBar.setMaximumSize(new Dimension(120, 20));
+        topPane.add(snqBar);
+        snqBar.setVisible(false);
+        topPane.add(Box.createHorizontalStrut(5));
+
+        seqBar = new JProgressBar();
+        seqBar.setStringPainted(true);
+        seqBar.setString("SEQ:");
+        seqBar.setMaximumSize(new Dimension(120, 20));
+        topPane.add(seqBar);
+        seqBar.setVisible(false);
+        topPane.add(Box.createHorizontalStrut(5));
+        final JSlider slider = new JSlider(new DefaultBoundedRangeModel(
+                160, 0, 0, 190) {
+            @Override
+            public boolean getValueIsAdjusting() {
+                return false;
+            }
+        }) {
+            @Override
+            public String getToolTipText(MouseEvent e) {
+                return String.format("%.1fdB", (float) (getValue() - 160) / 10);
+            }
+        };
+        ToolTipManager.sharedInstance().registerComponent(slider);
+        ToolTipManager.sharedInstance().setInitialDelay(50);
+        ToolTipManager.sharedInstance().setReshowDelay(0);
+        slider.addChangeListener(ProgramCard.INSTANCE);
+        Dimension d = slider.getPreferredSize();
+        d.width = 240;
+        slider.setMaximumSize(d);
+        topPane.add(slider);
+        topPane.add(Box.createHorizontalStrut(5));
+        frame.add(topPane, BorderLayout.NORTH);
+
         frame.pack();
         Util.centerWindow(frame);
         frame.setVisible(true);
@@ -180,10 +248,44 @@ Exception in thread "AWT-EventQueue-0" java.lang.IndexOutOfBoundsException: Inde
         at java.awt.Dialog.setVisible(Unknown Source)                    
         at com.hanhuy.hdhr.ProgressDialog.showProgress(ProgressDialog.java:61)
 */
+                    System.out.println(
+                            "Strange IndexOutOfBoundsException occurred");
+                    e.printStackTrace();
                     return;
                 }
                 JOptionPane.showMessageDialog(Main.frame,
                         "Found " + t.programs.size() + " programs");
+            }
+        }));
+        tunerMenu.add(new RunnableAction("Unlock tuner", new Runnable() {
+            public void run() {
+                Control c = new Control();
+                Tuner t = (Tuner) value;
+                try {
+                    c.connect(t.device.id);
+                    String lock = c.get(
+                            "/tuner" + t.tuner.ordinal() + "/lockkey");
+                    if ("none".equals(lock)) {
+                        JOptionPane.showMessageDialog(Main.frame,
+                            "This tuner is not locked");
+                        return;
+                    }
+                    int r = JOptionPane.showConfirmDialog(
+                            Main.frame, "<html><p>" +
+                            "Force unlock this tuner?  Doing so might " +
+                            " interrupt another program that may be using " +
+                            " this tuner.",
+                            "Unlock Tuner", JOptionPane.YES_NO_OPTION);
+                    if (r != JOptionPane.YES_OPTION)
+                        return;
+                    c.force(t.tuner);
+                }
+                catch (TunerException e) {
+                    JOptionPane.showMessageDialog(Main.frame, e.getMessage());
+                }
+                finally {
+                    c.close();
+                }
             }
         }));
         tunerMenu.add(new RunnableAction("Match channel lineup...",

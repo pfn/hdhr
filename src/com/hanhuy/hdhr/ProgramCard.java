@@ -14,11 +14,12 @@ import java.awt.event.MouseAdapter;
 import java.util.Map;
 import java.net.InetAddress;
 
-import javax.swing.JPopupMenu;
-import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
+import javax.swing.JSlider;
+import javax.swing.event.ChangeListener;
+import javax.swing.event.ChangeEvent;
 import javax.swing.event.TreeSelectionListener;
 import javax.swing.event.TreeSelectionEvent;
 
@@ -32,7 +33,7 @@ import com.sun.jna.Native;
 import com.sun.jna.Platform;
 
 public class ProgramCard extends ResourceBundleForm
-implements TreeSelectionListener {
+implements TreeSelectionListener, ChangeListener {
     public final static ProgramCard INSTANCE = new ProgramCard();
     public final static String CARD_NAME = "ProgramCard";
     public final JPanel card;
@@ -44,30 +45,14 @@ implements TreeSelectionListener {
     private final Canvas c;
     private String libraryPath;
 
+    private int volume = 100;
+
     private ProgramCard() {
         card = new JPanel();
         card.setLayout(createLayoutManager());
 
         c = new Canvas();
 
-        final JPopupMenu popup = new JPopupMenu();
-        popup.add(new JMenuItem("Full screen"));
-        c.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) {
-                maybeShowPopup(e);
-            }
-            @Override
-            public void mouseReleased(MouseEvent e) {
-                maybeShowPopup(e);
-            }
-
-            private void maybeShowPopup(MouseEvent e) {
-                if (e.isPopupTrigger()) {
-                    popup.show(e.getComponent(), e.getX(), e.getY());
-                }
-            }
-        });
         c.setBackground(Color.black);
         card.add(c, "canvas");
 
@@ -76,7 +61,12 @@ implements TreeSelectionListener {
 
         if (isJWS) {
             libraryPath = Native.getWebStartLibraryPath("libvlc");
-            System.setProperty("jna.library.path", libraryPath);
+            if (libraryPath != null)
+                System.setProperty("jna.library.path", libraryPath);
+        }
+
+        if (Platform.isLinux()) {
+            System.setProperty("jna.library.path", "/usr/lib:/usr/local/lib");
         }
         libvlc = LibVlc.SYNC_INSTANCE;
     }
@@ -84,25 +74,36 @@ implements TreeSelectionListener {
     private void setProgram(Tuner t, Program program) {
         final libvlc_exception_t ex = new libvlc_exception_t();
 
+        String defaultLibraryPath = "C:\\Program Files\\VideoLAN\\vlc";
+        if (Platform.isLinux())
+            defaultLibraryPath = "/usr/lib/vlc";
+
         String pluginPath = libraryPath != null ?
-                libraryPath : "c:\\Program Files\\VideoLAN\\vlc";
-        String[] vlc_args = { "-I", "dummy", "--ignore-config",
+                libraryPath : defaultLibraryPath;
+        String[] vlc_args = {
+                "-I", "dummy",
+                //"--ignore-config",
                 "--plugin-path", libraryPath,
                 "--no-overlay",
                 "--no-video-title-show",
                 "--no-osd",
                 "--quiet", "1",
                 "--verbose", "0",
+                "--ffmpeg-skiploopfilter=4",
                 "--mouse-hide-timeout", "100",
                 "--deinterlace-mode", "linear",
-                "--video-filter=deinterlace" };
+                "--video-filter=deinterlace"
+                };
         instance = libvlc.libvlc_new(vlc_args.length, vlc_args, ex);
-        raise(ex);
+        throwError(ex);
+
+        libvlc.libvlc_audio_set_volume(instance, volume, ex);
+        throwError(ex);
 
         LibVlcMedia media;
 
         media = libvlc.libvlc_media_new(instance, "udp://@:5000", ex);
-        raise(ex);
+        throwError(ex);
 
         device = new Control();
         try {
@@ -125,7 +126,7 @@ implements TreeSelectionListener {
         }
 
         player = libvlc.libvlc_media_player_new_from_media(media, ex);
-        raise(ex);
+        throwError(ex);
 
         libvlc.libvlc_media_release(media);
 
@@ -134,16 +135,16 @@ implements TreeSelectionListener {
         { // set_drawable only works properly on 32bit
             long drawable = Native.getComponentID(c);
             libvlc.libvlc_media_player_set_drawable(player, (int)drawable, ex);
-            raise(ex);
         }
         // vlc 1.0 will deprecate the above api
         if (Platform.isWindows()) {
         } else if (Platform.isX11()) {
         } else if (Platform.isMac()) {
         }
+        throwError(ex);
 
         libvlc.libvlc_media_player_play(player, ex);
-        raise(ex);
+        throwError(ex);
     }
 
     public void valueChanged(TreeSelectionEvent e) {
@@ -178,17 +179,35 @@ implements TreeSelectionListener {
         if (instance != null)
             libvlc.libvlc_release(instance);
 
-        raise(ex);
+        throwError(ex);
         device   = null;
         player   = null;
         instance = null;
     }
 
-    private void raise(LibVlc.libvlc_exception_t ex) {
-        if (ex != null && ex.raised != 0) {
-            System.out.println(ex.code);
-            System.out.println(ex.message);
-            System.exit(1);
+    private void throwError(LibVlc.libvlc_exception_t ex) {
+        if (ex != null && ex.raised != 0)
+            throw new RuntimeException(ex.code + ": " + ex.message);
+    }
+
+    /**
+     * volume range of -18dB to 3.0dB
+     *
+     * 16 + 3 = 19 * 10 = 190
+     */
+    public void stateChanged(ChangeEvent e) {
+        JSlider slider = (JSlider) e.getSource();
+        int value = slider.getValue();
+        double dB = (double) (value - 160) / 10;
+
+        int linear = (int) Math.round(100.0 * Math.pow(10, dB/10));
+
+        volume = Math.min(linear, 200);
+
+        if (instance != null) {
+            libvlc_exception_t ex = new libvlc_exception_t();
+            libvlc.libvlc_audio_set_volume(instance, volume, ex);
+            throwError(ex);
         }
     }
 }

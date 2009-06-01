@@ -178,7 +178,7 @@ public class ChannelMap implements Serializable {
         }
         public String toString() {
             return String.format(
-                    "hz:%9d ch:%3d %s", frequency, number, maps);
+                    "Hz:%9d ch:%3d %s", frequency, number, maps);
         }
 
         public Set<String> getMaps() {

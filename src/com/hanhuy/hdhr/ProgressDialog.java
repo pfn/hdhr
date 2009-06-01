@@ -30,7 +30,7 @@ public class ProgressDialog extends ResourceBundleForm {
         dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
         bar = new JProgressBar();
         Dimension d = bar.getPreferredSize();
-        d.width = 320;
+        d.width = 480;
         bar.setPreferredSize(d);
 
         dialog.setLayout(createLayoutManager());

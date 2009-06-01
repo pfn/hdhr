@@ -5,6 +5,7 @@ import com.hanhuy.common.ui.ResourceBundleForm;
 import com.hanhuy.hdhr.treemodel.Tuner;
 import com.hanhuy.hdhr.config.Control;
 import com.hanhuy.hdhr.config.TunerException;
+import com.hanhuy.hdhr.config.ChannelMap.Channel.Program;
 
 import java.awt.EventQueue;
 import java.awt.Color;
@@ -71,51 +72,29 @@ implements TreeSelectionListener {
         String tuner = String.format("/tuner%d/", t.tuner.ordinal());
         try {
             device.connect(t.device.id);
-            lockedBy.setText(device.get(tuner + "lockkey"));
-            target.setText(device.get(tuner + "target"));
-            channel.setText(device.get(tuner + "channel"));
+            if (!task.isProgram) {
+                lockedBy.setText(device.get(tuner + "lockkey"));
+                target.setText(device.get(tuner + "target"));
+                channel.setText(device.get(tuner + "channel"));
+            }
             Map<String,String> status = Control.parseStatus(
                     device.get(tuner + "status"));
             int ss  = Integer.parseInt(status.get("ss"));
             int seq = Integer.parseInt(status.get("seq"));
             int snq = Integer.parseInt(status.get("snq"));
-            Color ssColor;
-            Color red    = new Color(0xFF, 0, 0);
-            Color yellow = new Color(0xFF, 0xCC, 0);
-            Color green  = new Color(0, 0xAA, 0);
-            if ("8vsb".equals(status.get("lock")) ||
-                    Arrays.asList("t8", "t7", "t6").contains(
-                    status.get("lock").substring(0, 2))) {
-                if (ss >= 75) // -30dBmV
-                    ssColor = green;
-                else if (ss >= 50) // -15dBmV
-                    ssColor = yellow;
-                else
-                    ssColor = red;
-            } else if ("none".equals(status.get("lock"))) {
-                ssColor = Color.gray;
+            if (task.isProgram) {
+                setStatusBars(Main.ssBar, Main.snqBar, Main.seqBar,
+                        ss, seq, snq, status.get("lock"), true);
             } else {
-                if (ss >= 90) // -6dBmV
-                    ssColor = green;
-                else if (ss >= 80) // -12dBmV
-                    ssColor = yellow;
-                else
-                    ssColor = red;
+                setStatusBars(ssBar, snqBar, seqBar, ss, seq, snq,
+                        status.get("lock"), false);
             }
-            ssBar.setValue(ss);
-            ssBar.setForeground(ssColor);
-            ssBar.setString(ss + "%");
-            snqBar.setValue(snq);
-            snqBar.setString(snq + "%");
-            snqBar.setForeground(snq >= 70 ?
-                    green : snq >= 50 ? yellow : red);
-            seqBar.setValue(seq);
-            seqBar.setString(seq + "%");
-            seqBar.setForeground(seq >= 100 ? green: red);
-            channelmap.setText(device.get(tuner + "channelmap"));
-            filter.setText(device.get(tuner + "filter"));
-            program.setText(device.get(tuner + "program"));
-            debug.setText("<html><pre>" + device.get(tuner + "debug"));
+            if (!task.isProgram) {
+                channelmap.setText(device.get(tuner + "channelmap"));
+                filter.setText(device.get(tuner + "filter"));
+                program.setText(device.get(tuner + "program"));
+                debug.setText("<html><pre>" + device.get(tuner + "debug"));
+            }
         }
         catch (TunerException e) {
             lastTuner = null;
@@ -127,18 +106,73 @@ implements TreeSelectionListener {
         }
     }
 
+    private void setStatusBars(
+            JProgressBar ssBar, JProgressBar snqBar, JProgressBar seqBar,
+            int ss, int seq, int snq, String lock, boolean showLabels) {
+        Color ssColor;
+        Color red    = new Color(0xFF, 0, 0);
+        Color yellow = new Color(0xFF, 0xCC, 0);
+        Color green  = new Color(0, 0xAA, 0);
+        if ("8vsb".equals(lock) ||
+                Arrays.asList("t8", "t7", "t6").contains(lock.substring(0, 2)))
+        {
+            if (ss >= 75) // -30dBmV
+                ssColor = green;
+            else if (ss >= 50) // -15dBmV
+                ssColor = yellow;
+            else
+                ssColor = red;
+        } else if ("none".equals(lock)) {
+            ssColor = Color.gray;
+        } else {
+            if (ss >= 90) // -6dBmV
+                ssColor = green;
+            else if (ss >= 80) // -12dBmV
+                ssColor = yellow;
+            else
+                ssColor = red;
+        }
+        String label;
+        ssBar.setValue(ss);
+        ssBar.setForeground(ssColor);
+        label = showLabels ? "SS: " + ss + "%" : ss + "%";
+        ssBar.setString(label);
+        snqBar.setValue(snq);
+        label = showLabels ? "SNQ: " + ss + "%" : ss + "%";
+        snqBar.setString(label);
+        snqBar.setForeground(snq >= 70 ?
+                green : snq >= 50 ? yellow : red);
+        seqBar.setValue(seq);
+        label = showLabels ? "SEQ: " + ss + "%" : ss + "%";
+        seqBar.setString(label);
+        seqBar.setForeground(seq >= 100 ? green: red);
+    }
+
     private RepeatingTask task = null;
     private Tuner lastTuner = null;
     public void valueChanged(TreeSelectionEvent e) {
-        Object item = e.getPath().getLastPathComponent();
+        stopThread();
+        Object[] path = e.getPath().getPath();
+        Object item = path[path.length - 1];
+
+        Main.ssBar.setVisible(false);
+        Main.seqBar.setVisible(false);
+        Main.snqBar.setVisible(false);
         if (item instanceof Tuner) {
             lastTuner = (Tuner) item;
-            stopThread();
             task = new RepeatingTask();
             new Thread(task, "TunerInfoCard").start();
             Main.cards.show(Main.cardPane, CARD_NAME);
-        } else {
-            stopThread();
+        } else if (item instanceof Program) {
+            lastTuner = (Tuner) path[path.length - 2];
+
+            task = new RepeatingTask();
+            task.isProgram = true;
+            new Thread(task, "TunerInfo-ProgramCard").start();
+
+            Main.ssBar.setVisible(true);
+            Main.seqBar.setVisible(true);
+            Main.snqBar.setVisible(true);
         }
     }
     private void stopThread() {
@@ -151,6 +185,7 @@ implements TreeSelectionListener {
     }
     class RepeatingTask implements Runnable {
         public boolean shutdown = false;
+        public volatile boolean isProgram = false;
         public void run() {
             synchronized (this) {
                 while (!shutdown && lastTuner != null) {
