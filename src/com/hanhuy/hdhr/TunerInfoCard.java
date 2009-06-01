@@ -138,12 +138,12 @@ implements TreeSelectionListener {
         label = showLabels ? "SS: " + ss + "%" : ss + "%";
         ssBar.setString(label);
         snqBar.setValue(snq);
-        label = showLabels ? "SNQ: " + ss + "%" : ss + "%";
+        label = showLabels ? "SNQ: " + snq + "%" : snq + "%";
         snqBar.setString(label);
         snqBar.setForeground(snq >= 70 ?
                 green : snq >= 50 ? yellow : red);
         seqBar.setValue(seq);
-        label = showLabels ? "SEQ: " + ss + "%" : ss + "%";
+        label = showLabels ? "SEQ: " + seq + "%" : seq + "%";
         seqBar.setString(label);
         seqBar.setForeground(seq >= 100 ? green: red);
     }
