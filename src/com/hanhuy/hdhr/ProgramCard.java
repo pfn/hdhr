@@ -31,12 +31,19 @@ import org.videolan.jvlc.internal.LibVlc.LibVlcMedia;
 
 import com.sun.jna.Native;
 import com.sun.jna.Platform;
+import com.sun.jna.Pointer;
 
 public class ProgramCard extends ResourceBundleForm
 implements TreeSelectionListener, ChangeListener {
+    private final static int VLC_VOLUME_MAX = 200;
+
+    public final static int SLIDER_VOLUME_MAX = 190;
+    public final static int SLIDER_VOLUME_0DB = 160;
+
     public final static ProgramCard INSTANCE = new ProgramCard();
     public final static String CARD_NAME = "ProgramCard";
     public final JPanel card;
+    private final String LIBVLC_VERSION;
 
     private final LibVlc libvlc;
     private LibVlcMediaPlayer player;
@@ -66,9 +73,15 @@ implements TreeSelectionListener, ChangeListener {
         }
 
         if (Platform.isLinux()) {
+            // disregard isJWS
             System.setProperty("jna.library.path", "/usr/lib:/usr/local/lib");
-        }
-        libvlc = LibVlc.SYNC_INSTANCE;
+
+            // debugging proxy
+            libvlc = DebugLibVlc.wrap(LibVlc.SYNC_INSTANCE);
+        } else
+            libvlc = LibVlc.SYNC_INSTANCE;
+        LIBVLC_VERSION = libvlc.libvlc_get_version();
+        System.out.println("LIBVLC_VERSION="+LIBVLC_VERSION);
     }
 
     private void setProgram(Tuner t, Program program) {
@@ -78,7 +91,7 @@ implements TreeSelectionListener, ChangeListener {
         if (Platform.isLinux())
             defaultLibraryPath = "/usr/lib/vlc";
 
-        String pluginPath = libraryPath != null ?
+        libraryPath = libraryPath != null ?
                 libraryPath : defaultLibraryPath;
         String[] vlc_args = {
                 "-I", "dummy",
@@ -93,7 +106,7 @@ implements TreeSelectionListener, ChangeListener {
                 "--mouse-hide-timeout", "100",
                 "--deinterlace-mode", "linear",
                 "--video-filter=deinterlace"
-                };
+        };
         instance = libvlc.libvlc_new(vlc_args.length, vlc_args, ex);
         throwError(ex);
 
@@ -132,14 +145,26 @@ implements TreeSelectionListener, ChangeListener {
 
         Main.cards.show(Main.cardPane, CARD_NAME);
 
-        { // set_drawable only works properly on 32bit
+        if (LIBVLC_VERSION.startsWith("0.9")) {
+            // set_drawable only works properly on 32bit
             long drawable = Native.getComponentID(c);
             libvlc.libvlc_media_player_set_drawable(player, (int)drawable, ex);
-        }
-        // vlc 1.0 will deprecate the above api
-        if (Platform.isWindows()) {
-        } else if (Platform.isX11()) {
-        } else if (Platform.isMac()) {
+        } else if (LIBVLC_VERSION.startsWith("1.0")) {
+            // vlc 1.0 will deprecate the above api
+            if (Platform.isWindows()) {
+                Pointer drawable = Native.getComponentPointer(c);
+                libvlc.libvlc_media_player_set_hwnd(player, drawable, ex);
+            } else if (Platform.isX11()) {
+                long drawable = Native.getComponentID(c);
+                libvlc.libvlc_media_player_set_xwindow(player, drawable, ex);
+            } else if (Platform.isMac()) {
+                Pointer drawable = Native.getComponentPointer(c);
+                libvlc.libvlc_media_player_set_nsobject(player, drawable, ex);
+            }
+        } else {
+            JOptionPane.showMessageDialog(Main.frame,
+                    "Unknown version of vlc: " + LIBVLC_VERSION);
+            return;
         }
         throwError(ex);
 
@@ -158,16 +183,23 @@ implements TreeSelectionListener, ChangeListener {
         }
     }
     void stopPlayer() {
+        stopPlayer(false);
+    }
+    void stopPlayer(boolean detune) {
         libvlc_exception_t ex = null;
 
         if (player != null) {
             ex = new libvlc_exception_t();
+            // this is crashing on mythbuntu 9--affects other linux?
             libvlc.libvlc_media_player_stop(player, ex);
+
             libvlc.libvlc_media_player_release(player);
         }
         if (device != null) {
             try {
                 device.set("target", "none");
+                if (detune)
+                    device.set("channel", "none");
                 device.unlock();
             }
             catch (TunerException e) { }
@@ -198,16 +230,20 @@ implements TreeSelectionListener, ChangeListener {
     public void stateChanged(ChangeEvent e) {
         JSlider slider = (JSlider) e.getSource();
         int value = slider.getValue();
-        double dB = (double) (value - 160) / 10;
+        double dB = getDB(value);
 
         int linear = (int) Math.round(100.0 * Math.pow(10, dB/10));
 
-        volume = Math.min(linear, 200);
+        volume = Math.min(linear, VLC_VOLUME_MAX);
 
         if (instance != null) {
             libvlc_exception_t ex = new libvlc_exception_t();
             libvlc.libvlc_audio_set_volume(instance, volume, ex);
             throwError(ex);
         }
+    }
+
+    public static double getDB(int value) {
+        return (double) (value - SLIDER_VOLUME_0DB) / 10;
     }
 }

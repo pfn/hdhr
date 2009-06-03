@@ -13,15 +13,14 @@ public class Tuner implements Serializable {
     public final Control.Tuner tuner;
     public final Device device;
 
-    public final List<Program> programs = new ArrayList<Program>();
-
     public Tuner(Device device, Control.Tuner tuner) {
         this.device = device;
         this.tuner  = tuner;
     }
 
     public String toString() {
-        return tuner.toString();
+        return Integer.toHexString(device.id).toUpperCase() +
+                "-" + tuner.ordinal();
     }
 
     @Override

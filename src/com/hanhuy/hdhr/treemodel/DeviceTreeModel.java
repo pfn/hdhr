@@ -22,6 +22,8 @@ import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
+import java.awt.EventQueue;
+
 import javax.swing.JOptionPane;
 import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreePath;
@@ -34,6 +36,7 @@ public class DeviceTreeModel implements TreeModel {
             System.getProperty("user.home"), ".hdhrb.ser");
 
     private Map<Integer,InetAddress[]> devices;
+    private boolean discovering;
     private List<Device> deviceObjs;
     private Set<TreeModelListener> listeners =
             new HashSet<TreeModelListener>();
@@ -91,25 +94,8 @@ public class DeviceTreeModel implements TreeModel {
     }
     public int getChildCount(Object node) {
         if (ROOT_NODE == node) {
-            if (devices == null) {
-                ProgressDialog d = new ProgressDialog(Main.frame,
-                    "Discovering Devices");
-                d.showProgress(new Runnable() {
-                    public void run() {
-                        try {
-                            devices = Discover.discover();
-                            deviceObjs = new ArrayList<Device>();
-                            for (Integer i : devices.keySet())
-                                deviceObjs.add(new Device(i));
-                        }
-                        catch (TunerException e) {
-                            JOptionPane.showMessageDialog(
-                                    Main.frame, e.getMessage());
-                        }
-                    }
-                });
-            }
-            return devices.size();
+            discover();
+            return devices != null ? devices.size() : 0;
         } else if (node instanceof Device) {
             return 2;
         } else if (node instanceof Tuner) {
@@ -145,7 +131,15 @@ public class DeviceTreeModel implements TreeModel {
         listeners.remove(l);
     }
 
-    void fireTreeNodesChanged(TreeModelEvent e) {
+    public void fireTreeNodesChanged(TreePath nodePath) {
+        Object item = nodePath.getLastPathComponent();
+        Object parent = nodePath.getParentPath().getLastPathComponent();
+
+        int idx = getIndexOfChild(parent, item);
+        TreeModelEvent e = new TreeModelEvent(this, nodePath.getParentPath(),
+            new int[] { idx }, new Object[] { item });
+        if (item instanceof Program)
+            saveData();
     }
     void fireTreeNodesInserted(TreeModelEvent e) {
     }
@@ -156,6 +150,11 @@ public class DeviceTreeModel implements TreeModel {
         for (TreeModelListener l : listeners)
             l.treeStructureChanged(e);
 
+        if (path[path.length - 1] instanceof Tuner)
+            saveData();
+    }
+
+    private void saveData() {
         FileOutputStream fout  = null;
         ObjectOutputStream oos = null;
         try {
@@ -176,5 +175,41 @@ public class DeviceTreeModel implements TreeModel {
             }
             catch (IOException exx) { }
         }
+    }
+
+    private synchronized void discover() {
+        if (devices == null && !discovering) {
+            discovering = true;
+            try {
+            ProgressDialog d = new ProgressDialog(Main.frame,
+                "Discovering Devices");
+            d.showProgress(new Runnable() {
+                public void run() {
+                    try {
+                        devices = Discover.discover();
+                        deviceObjs = new ArrayList<Device>();
+                        for (Integer i : devices.keySet())
+                            deviceObjs.add(new Device(i));
+                    }
+                    catch (TunerException e) {
+                        JOptionPane.showMessageDialog(
+                                Main.frame, e.getMessage());
+                    }
+                }
+            });
+            }
+            finally {
+                discovering = false;
+            }
+        }
+    }
+    public synchronized void rediscover() {
+        devices = null;
+        discover();
+        EventQueue.invokeLater(new Runnable() {
+            public void run() {
+                fireTreeStructureChanged(new Object[] { ROOT_NODE });
+            }
+        });
     }
 }

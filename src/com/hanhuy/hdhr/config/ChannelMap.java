@@ -127,7 +127,8 @@ public class ChannelMap implements Serializable {
 
         public boolean equals(Object other) {
             if (other != null && other instanceof Channel) {
-                if (frequency == ((Channel)other).frequency)
+                if (frequency == ((Channel)other).frequency &&
+                        maps.equals(((Channel)other).maps))
                     return true;
             }
             return false;
@@ -208,11 +209,34 @@ public class ChannelMap implements Serializable {
                     this.name = name;
             }
 
+            @Override
+            public int hashCode() {
+                return channel.frequency;
+            }
+
+            @Override
+            public boolean equals(Object other) {
+                if (other instanceof Program) {
+                    Program p = (Program) other;
+                    boolean equals = true;
+
+                    equals &= number            == p.number;
+                    equals &= virtualMajor      == p.virtualMajor;
+                    equals &= virtualMinor      == p.virtualMinor;
+                    equals &= channel.frequency == p.channel.frequency;
+                    return equals;
+                }
+                return false;
+            }
+            @Override
             public String toString() {
-                String virtual = virtualMinor == 0 ?
-                        "" + virtualMajor : virtualMajor + "." + virtualMinor;
                 return String.format("%d.%d [%s] %s",
-                        channel.number, number, virtual, name);
+                        channel.number, number, getGuideNumber(), name);
+            }
+
+            public String getGuideNumber() {
+                return virtualMinor == 0 ?
+                        "" + virtualMajor : virtualMajor + "." + virtualMinor;
             }
         }
     }

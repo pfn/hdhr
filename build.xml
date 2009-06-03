@@ -110,7 +110,10 @@
       <param name="src" value="${common.ui.dist.dir}/hanhuy-common-ui.jar"/>
     </antcall>
     <antcall target="signjar">
-      <param name="src" value="/home/pfnguyen/vlc.jar"/>
+      <param name="src" value="/home/pfnguyen/vlc-win32.jar"/>
+    </antcall>
+    <antcall target="signjar">
+      <param name="src" value="/home/pfnguyen/vlc-osx.jar"/>
     </antcall>
     <antcall target="signjar">
       <param name="src" value="${lib.dir}/jna-3.1.0.jar"/>

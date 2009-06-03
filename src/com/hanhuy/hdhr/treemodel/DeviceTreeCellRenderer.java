@@ -22,8 +22,11 @@ implements TreeCellRenderer {
     public Component getTreeCellRendererComponent(JTree tree,
             Object item, boolean selected, boolean expanded, boolean leaf,
             int row, boolean focused) {
+        String text = item.toString();
+        if (item instanceof Tuner)
+            text = ((Tuner)item).tuner.toString();
         JLabel l = (JLabel) renderer.getTreeCellRendererComponent(
-                tree, item, selected, expanded, leaf, row, focused);
+                tree, text, selected, expanded, leaf, row, focused);
         if (item == DeviceTreeModel.ROOT_NODE)
             l.setIcon(devicesIcon);
         else if (item instanceof Device)
