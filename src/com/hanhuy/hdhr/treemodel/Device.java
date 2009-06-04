@@ -4,7 +4,7 @@ import com.hanhuy.hdhr.config.Control;
 
 import java.io.Serializable;
 
-public class Device implements Serializable {
+public class Device implements Serializable, Comparable<Device> {
 
     private final static long serialVersionUID = 200905251536L;
     public final int id;
@@ -31,5 +31,9 @@ public class Device implements Serializable {
         if (other instanceof Device)
             return ((Device)other).id == id;
         return false;
+    }
+
+    public int compareTo(Device d) {
+        return id - d.id;
     }
 }

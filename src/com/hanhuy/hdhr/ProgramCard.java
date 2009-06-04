@@ -13,6 +13,8 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseAdapter;
 import java.util.Map;
 import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 import javax.swing.JPanel;
 import javax.swing.JLabel;
@@ -33,6 +35,8 @@ import com.sun.jna.Native;
 import com.sun.jna.Platform;
 import com.sun.jna.Pointer;
 
+import java.awt.event.KeyListener;
+import java.awt.event.KeyEvent;
 public class ProgramCard extends ResourceBundleForm
 implements TreeSelectionListener, ChangeListener {
     private final static int VLC_VOLUME_MAX = 200;
@@ -60,6 +64,17 @@ implements TreeSelectionListener, ChangeListener {
 
         c = new Canvas();
 
+        c.addKeyListener(new KeyListener() {
+            public void keyTyped(KeyEvent e) {
+                System.out.println(e);
+            }
+            public void keyPressed(KeyEvent e) {
+                System.out.println(e);
+            }
+            public void keyReleased(KeyEvent e) {
+                System.out.println(e);
+            }
+        });
         c.setBackground(Color.black);
         card.add(c, "canvas");
 
@@ -77,9 +92,11 @@ implements TreeSelectionListener, ChangeListener {
             System.setProperty("jna.library.path", "/usr/lib:/usr/local/lib");
 
             // debugging proxy
-            libvlc = DebugLibVlc.wrap(LibVlc.SYNC_INSTANCE);
-        } else
-            libvlc = LibVlc.SYNC_INSTANCE;
+            //libvlc = DebugLibVlc.wrap(LibVlc.SYNC_INSTANCE);
+        } else {
+            // libvlc = LibVlc.SYNC_INSTANCE;
+        }
+        libvlc = DebugLibVlc.wrap(LibVlc.SYNC_INSTANCE);
         LIBVLC_VERSION = libvlc.libvlc_get_version();
         System.out.println("LIBVLC_VERSION="+LIBVLC_VERSION);
     }
@@ -87,27 +104,38 @@ implements TreeSelectionListener, ChangeListener {
     private void setProgram(Tuner t, Program program) {
         final libvlc_exception_t ex = new libvlc_exception_t();
 
-        String defaultLibraryPath = "C:\\Program Files\\VideoLAN\\vlc";
+        //String defaultLibraryPath = "C:\\Program Files\\VideoLAN\\vlc";
+        String defaultLibraryPath = "C:\\vlct";
         if (Platform.isLinux())
             defaultLibraryPath = "/usr/lib/vlc";
 
         libraryPath = libraryPath != null ?
                 libraryPath : defaultLibraryPath;
-        String[] vlc_args = {
-                "-I", "dummy",
+        ArrayList<String> vlc_args = new ArrayList<String>(Arrays.asList(
+                //"-vvv",
                 //"--ignore-config",
+                "-I",            "dummy",
+                "--control",     "hotkeys",
                 "--plugin-path", libraryPath,
                 "--no-overlay",
                 "--no-video-title-show",
                 "--no-osd",
-                "--quiet", "1",
-                "--verbose", "0",
-                "--ffmpeg-skiploopfilter=4",
+                "--quiet",              "1",
+                "--verbose",            "0",
                 "--mouse-hide-timeout", "100",
-                "--deinterlace-mode", "linear",
-                "--video-filter=deinterlace"
-        };
-        instance = libvlc.libvlc_new(vlc_args.length, vlc_args, ex);
+                "--video-filter",       "deinterlace",
+                "--deinterlace-mode",   "linear"
+        ));
+        if (LIBVLC_VERSION.startsWith("0.9")) {
+            vlc_args.add("--ffmpeg-skiploopfilter");
+            vlc_args.add("4");
+        } else {
+            vlc_args.add("--ffmpeg-fast");
+            vlc_args.add("--ffmpeg-skiploopfilter");
+            vlc_args.add("all");
+        }
+        instance = libvlc.libvlc_new(vlc_args.size(),
+                vlc_args.toArray(new String[0]), ex);
         throwError(ex);
 
         libvlc.libvlc_audio_set_volume(instance, volume, ex);
@@ -134,6 +162,7 @@ implements TreeSelectionListener, ChangeListener {
         catch (TunerException e) {
             JOptionPane.showMessageDialog(Main.frame, e.getMessage());
             device.close();
+            device = null;
             stopPlayer();
             return;
         }

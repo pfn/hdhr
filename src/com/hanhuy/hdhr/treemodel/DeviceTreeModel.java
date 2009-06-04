@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.Collections;
 import java.net.InetAddress;
 
 import java.io.IOException;
@@ -190,6 +191,7 @@ public class DeviceTreeModel implements TreeModel {
                         deviceObjs = new ArrayList<Device>();
                         for (Integer i : devices.keySet())
                             deviceObjs.add(new Device(i));
+                        Collections.sort(deviceObjs);
                     }
                     catch (TunerException e) {
                         JOptionPane.showMessageDialog(

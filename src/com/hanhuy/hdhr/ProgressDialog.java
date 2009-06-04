@@ -5,6 +5,7 @@ import com.hanhuy.common.ui.ResourceBundleForm;
 
 import javax.swing.JDialog;
 import javax.swing.JProgressBar;
+import javax.swing.JButton;
 
 import java.awt.Dimension;
 import java.awt.EventQueue;
@@ -36,7 +37,16 @@ public class ProgressDialog extends ResourceBundleForm {
         dialog.setLayout(createLayoutManager());
         dialog.add(bar, "progressbar");
     }
-    public void showProgress(final Runnable r) {
+    private void addCancelButton(Runnable r) {
+        if (r == null) return;
+        JButton button = new JButton(new RunnableAction("Cancel", r));
+        dialog.add(button, "cancelbutton");
+    }
+    public void showProgress(Runnable r) {
+        showProgress(r, null);
+    }
+    public void showProgress(final Runnable r, final Runnable cancel) {
+        addCancelButton(cancel);
         bar.setIndeterminate(true);
         Thread t = new Thread(new Runnable() {
             public void run() {

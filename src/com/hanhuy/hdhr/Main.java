@@ -81,7 +81,7 @@ public class Main extends ResourceBundleForm implements Runnable {
     static JProgressBar ssBar, seqBar, snqBar;
 
     public static void main(String[] args) throws Exception {
-        if (System.getProperty("com.hanhuy.hdhr.noconsole") == null)
+        if (System.getProperty("com.hanhuy.hdhr.console") != null)
             setConsole();
         UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         UIManager.put("ProgressBar.selectionForeground", Color.black);
@@ -400,31 +400,13 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
                 }
                 ProgressDialog d = new ProgressDialog(
                         Main.frame, "Scanning");
-                try {
-                    d.showProgress(new ScanningRunnable(t));
-                }
-                catch (IndexOutOfBoundsException e) {
-/* seem to hit some sort of bug here:
-Exception in thread "AWT-EventQueue-0" java.lang.IndexOutOfBoundsException: Index: 1, Size: 1
-        at java.util.ArrayList.RangeCheck(Unknown Source)
-        at java.util.ArrayList.get(Unknown Source)
-        at java.awt.Container.createHierarchyEvents(Unknown Source)
-        at java.awt.Container.createHierarchyEvents(Unknown Source)
-        at java.awt.Container.createHierarchyEvents(Unknown Source)
-        at java.awt.Container.createHierarchyEvents(Unknown Source)
-        at java.awt.Dialog.conditionalShow(Unknown Source)
-        at java.awt.Dialog.show(Unknown Source)
-        at java.awt.Component.show(Unknown Source)
-        at java.awt.Component.setVisible(Unknown Source)
-        at java.awt.Window.setVisible(Unknown Source)
-        at java.awt.Dialog.setVisible(Unknown Source)                    
-        at com.hanhuy.hdhr.ProgressDialog.showProgress(ProgressDialog.java:61)
-*/
-                    System.out.println(
-                            "Strange IndexOutOfBoundsException occurred");
-                    e.printStackTrace();
-                    return;
-                }
+                final ScanningRunnable r = new ScanningRunnable(t);
+                d.showProgress(r, new Runnable() {
+                    public void run() {
+                        r.cancelled = true;
+                    }
+                });
+                if (r.cancelled) return;
                 JOptionPane.showMessageDialog(Main.frame,
                         "Found " + Main.model.programMap.get(t).size() +
                         " programs");
@@ -483,7 +465,38 @@ Exception in thread "AWT-EventQueue-0" java.lang.IndexOutOfBoundsException: Inde
                             "Unset target", JOptionPane.YES_NO_OPTION);
                     if (r != JOptionPane.YES_OPTION)
                         return;
-                    c.force(t.tuner);
+                    c.set(target, "none");
+                }
+                catch (TunerException e) {
+                    JOptionPane.showMessageDialog(Main.frame, e.getMessage());
+                }
+                finally {
+                    c.close();
+                }
+            }
+        }));
+        tunerMenu.add(new RunnableAction("Unset channel", new Runnable() {
+            public void run() {
+                Control c = new Control();
+                Tuner t = (Tuner) value;
+                try {
+                    c.connect(t.device.id);
+                    String channel = String.format("/tuner%d/channel",
+                            t.tuner.ordinal());
+                    String tune = c.get(channel);
+                    if ("none".equals(tune)) {
+                        JOptionPane.showMessageDialog(Main.frame,
+                            "There is no channel set");
+                        return;
+                    }
+                    int r = JOptionPane.showConfirmDialog(
+                            Main.frame, "<html><p>" +
+                            "Detune?  If any application is using this" +
+                            " tuner they will be interrupted.",
+                            "Detune", JOptionPane.YES_NO_OPTION);
+                    if (r != JOptionPane.YES_OPTION)
+                        return;
+                    c.set(channel, "none");
                 }
                 catch (TunerException e) {
                     JOptionPane.showMessageDialog(Main.frame, e.getMessage());
@@ -743,6 +756,7 @@ Exception in thread "AWT-EventQueue-0" java.lang.IndexOutOfBoundsException: Inde
     }
 }
 class ScanningRunnable implements ProgressAwareRunnable {
+    volatile boolean cancelled = false;
     ScanningRunnable(Tuner t) {
         this.t = t;
     }
@@ -767,6 +781,7 @@ class ScanningRunnable implements ProgressAwareRunnable {
                 boolean configured = false;
                 int found = 0;
                 public void scanningChannel(ChannelScan.ScanEvent e) {
+                    if (cancelled) e.cancelScan();
                     if (!configured) {
                         bar.setIndeterminate(false);
                         bar.setMinimum(0);
@@ -782,16 +797,19 @@ class ScanningRunnable implements ProgressAwareRunnable {
                             e.index, e.map.getChannels().size(), e.channel));
                 }
                 public void foundChannel(ChannelScan.ScanEvent e) {
+                    if (cancelled) e.cancelScan();
                     bar.setValue(bar.getValue() + 1);
                     System.out.println("Locked: " + e.getStatus());
                 }
                 public void skippedChannel(ChannelScan.ScanEvent e) {
+                    if (cancelled) e.cancelScan();
                     bar.setValue(bar.getValue() + 1);
                     System.out.println("Skipped: " +
                             (e.getStatus() != null ?
                                     e.getStatus() : "impossible channel"));
                 }
                 public void programsFound(ChannelScan.ScanEvent e) {
+                    if (cancelled) e.cancelScan();
                     found += e.channel.getPrograms().size();
                     programs.addAll(e.channel.getPrograms());
 
@@ -801,13 +819,17 @@ class ScanningRunnable implements ProgressAwareRunnable {
                         System.out.println(p);
                 }
                 public void programsNotFound(ChannelScan.ScanEvent e) {
+                    if (cancelled) e.cancelScan();
                     System.out.println("BEGIN STREAMINFO:" + e.streaminfo +
                             ":END STREAMINFO");
                     System.out.println("No available programs found");
                 }
             });
             device.unlock();
+            if (cancelled)
+                return;
 
+            System.out.println("Found " + programs.size() + " programs");
             Main.model.programMap.put(t, programs);
             EventQueue.invokeLater(new Runnable() {
                 public void run() {
