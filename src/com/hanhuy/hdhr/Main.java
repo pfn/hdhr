@@ -14,6 +14,7 @@ import com.hanhuy.hdhr.treemodel.DeviceTreeModel;
 import com.hanhuy.hdhr.treemodel.DeviceTreeCellRenderer;
 import com.hanhuy.hdhr.treemodel.Tuner;
 import com.hanhuy.hdhr.treemodel.Device;
+import com.hanhuy.hdhr.av.VideoPlayerFactory;
 
 import java.beans.PropertyEditorManager;
 import java.io.IOException;
@@ -29,6 +30,8 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowAdapter;
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
 import java.awt.Color;
 import java.awt.Window;
 import java.util.List;
@@ -47,6 +50,7 @@ import javax.swing.JSlider;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JRadioButton;
+import javax.swing.JRadioButtonMenuItem;
 import javax.swing.ButtonGroup;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -57,6 +61,7 @@ import javax.swing.UIManager;
 import javax.swing.JSplitPane;
 import javax.swing.JTree;
 import javax.swing.JTextField;
+import javax.swing.JToggleButton;
 import javax.swing.ImageIcon;
 import javax.swing.JPopupMenu;
 import javax.swing.JOptionPane;
@@ -117,11 +122,9 @@ public class Main extends ResourceBundleForm implements Runnable {
         });
     }
 
-    public void run() {
-        JFrame jframe = new JFrame(getString("title"));
-        jframe.setIconImage(((ImageIcon)getIcon("icon")).getImage());
+    private void initMenu(JFrame container) {
         JMenuBar menubar = new JMenuBar();
-        jframe.setJMenuBar(menubar);
+        container.setJMenuBar(menubar);
         JMenu menu;
 
         menu = new JMenu(getString("fileMenuTitle"));
@@ -131,7 +134,12 @@ public class Main extends ResourceBundleForm implements Runnable {
             public void run() {
                 new ConsoleViewer(Main.frame);
             }
-        }));
+        }) {
+            {
+                setEnabled(
+                        System.getProperty("com.hanhuy.hdhr.console") != null);
+            }
+        });
         menu.add(new RunnableAction("Exit", KeyEvent.VK_X, "control X",
                 new Runnable() {
             public void run() {
@@ -161,9 +169,38 @@ public class Main extends ResourceBundleForm implements Runnable {
                 changeFontSize(false);
             }
         }));
+
         menubar.add(menu);
+        menu = new JMenu(getString("backendsMenuTitle"));
+        menu.setMnemonic(getChar("backendsMenuMnemonic"));
+
+        String[] backends = VideoPlayerFactory.getVideoPlayerNames();
+        ButtonGroup g = new ButtonGroup();
+        ActionListener l = new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                String c = e.getActionCommand();
+                ProgramCard.INSTANCE.setVideoPlayer(
+                        VideoPlayerFactory.getVideoPlayer(c));
+            }
+        };
+        for (int i = 0, j = backends.length; i < j; i++) {
+            JRadioButtonMenuItem item = new JRadioButtonMenuItem(
+                    backends[i], i == 0);
+            g.add(item);
+            item.setActionCommand(backends[i]);
+            item.addActionListener(l);
+            menu.add(item);
+        }
+
+        menubar.add(menu);
+    }
+    public void run() {
+        JFrame jframe = new JFrame(getString("title"));
+        jframe.setIconImage(((ImageIcon)getIcon("icon")).getImage());
+        initMenu(jframe);
 
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+        split.setResizeWeight(1.0);
         TreePopupListener l = new TreePopupListener();
         final JTree tree = new JTree(model);
         tree.addMouseListener(l);
@@ -195,6 +232,8 @@ public class Main extends ResourceBundleForm implements Runnable {
                 ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
                 ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         pane.setPreferredSize(new Dimension(320, 540));
+        //pane.setMaximumSize(new Dimension(10000, 10000));
+        //split.setDividerLocation(320);
         split.setTopComponent(pane);
 
         cards    = new CardLayout();
@@ -206,6 +245,7 @@ public class Main extends ResourceBundleForm implements Runnable {
         cardPane.add(ProgramCard.INSTANCE.card,    ProgramCard.CARD_NAME);
         cards.show(cardPane, "blank");
         cardPane.setPreferredSize(new Dimension(960, 540));
+        cardPane.setMinimumSize(new Dimension(320, 240));
         split.setBottomComponent(cardPane);
 
         jframe.add(split);
@@ -258,9 +298,22 @@ public class Main extends ResourceBundleForm implements Runnable {
         topPane.add(seqBar);
         seqBar.setVisible(false);
         topPane.add(Box.createHorizontalStrut(5));
+
+
+        final JToggleButton muteButton = new JToggleButton(
+                getIcon("speakerIcon"));
+        muteButton.setBorderPainted(false);
+        muteButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                boolean muting = muteButton.isSelected();
+                muteButton.setIcon(getIcon(muting ?
+                        "speakerMuteIcon" : "speakerIcon"));
+                ProgramCard.INSTANCE.getVideoPlayer().mute(muting);
+            }
+        });
+        topPane.add(muteButton);
         final JSlider slider = new JSlider(new DefaultBoundedRangeModel(
-                ProgramCard.SLIDER_VOLUME_0DB, 0, 0,
-                ProgramCard.SLIDER_VOLUME_MAX) {
+                ProgramCard.DEFAULT_VOLUME, 0, 0, ProgramCard.MAX_VOLUME) {
             @Override
             public boolean getValueIsAdjusting() {
                 return false;
@@ -288,10 +341,8 @@ public class Main extends ResourceBundleForm implements Runnable {
             @Override
             public String getToolTipText(MouseEvent e) {
                 BasicSliderUI ui = (BasicSliderUI) getUI();
-                return String.format("%.1fdB (%.1fdB)",
-                        ProgramCard.getDB(getValue()),
-                        ProgramCard.getDB(
-                                ui.valueForXPosition(e.getPoint().x)));
+                return String.format("%d (%d)",
+                        getValue(), ui.valueForXPosition(e.getPoint().x));
             }
             @Override
             public Point getToolTipLocation(MouseEvent e) {

@@ -89,9 +89,22 @@
         <include name="com/hanhuy/**/*.properties"/>
       </fileset>
     </jar>
+
     <signjar jar="${dist.dir}/hdhr/hdhr-resources.jar"
            alias="${key.alias}" keystore="${key.store}"
        storepass="${key.store.pass}" storetype="${key.store.type}"/>
+    <!--
+    <signjar jar="${dist.dir}/hdhr/vlc-win32-1.0.0rc3.jar"
+           alias="${key.alias}" keystore="${key.store}"
+       storepass="${key.store.pass}" storetype="${key.store.type}"/>
+    <signjar jar="${dist.dir}/hdhr/vlc-osx-1.0.0rc3.jar"
+           alias="${key.alias}" keystore="${key.store}"
+       storepass="${key.store.pass}" storetype="${key.store.type}"/>
+    <signjar jar="${dist.dir}/hdhr/mplayer.jar"
+           alias="${key.alias}" keystore="${key.store}"
+       storepass="${key.store.pass}" storetype="${key.store.type}"/>
+    -->
+
     <jar jarfile="${build.dir}/hdhr.jar">
       <manifest>
         <attribute name="Main-Class" value="com.hanhuy.hdhr.Main"/>
@@ -108,12 +121,6 @@
     </antcall>
     <antcall target="signjar">
       <param name="src" value="${common.ui.dist.dir}/hanhuy-common-ui.jar"/>
-    </antcall>
-    <antcall target="signjar">
-      <param name="src" value="/home/pfnguyen/vlc-win32.jar"/>
-    </antcall>
-    <antcall target="signjar">
-      <param name="src" value="/home/pfnguyen/vlc-osx.jar"/>
     </antcall>
     <antcall target="signjar">
       <param name="src" value="${lib.dir}/jna-3.1.0.jar"/>
