@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.HashMap;
 
 import javax.swing.JList;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.ToolTipManager;
 import javax.swing.JDialog;
 import javax.swing.JProgressBar;
@@ -191,6 +192,16 @@ public class Main extends ResourceBundleForm implements Runnable {
             item.addActionListener(l);
             menu.add(item);
         }
+        menu.addSeparator();
+        final JCheckBoxMenuItem debugItem = new JCheckBoxMenuItem();
+        RunnableAction debugAction = new RunnableAction(
+                "Debug", new Runnable() {
+            public void run() {
+                ProgramCard.INSTANCE.setDebug(debugItem.isSelected());
+            }
+        });
+        debugItem.setAction(debugAction);
+        menu.add(debugItem);
 
         menubar.add(menu);
     }
@@ -306,7 +317,7 @@ public class Main extends ResourceBundleForm implements Runnable {
                 boolean muting = muteButton.isSelected();
                 muteButton.setIcon(getIcon(muting ?
                         "speakerMuteIcon" : "speakerIcon"));
-                ProgramCard.INSTANCE.getVideoPlayer().mute(muting);
+                ProgramCard.INSTANCE.setMute(muting);
             }
         });
         topPane.add(muteButton);

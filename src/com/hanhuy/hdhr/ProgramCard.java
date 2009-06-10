@@ -15,6 +15,8 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseAdapter;
 import java.util.Map;
 import java.net.InetAddress;
+import java.net.DatagramSocket;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -37,6 +39,9 @@ implements TreeSelectionListener, ChangeListener {
     public final static String CARD_NAME = "ProgramCard";
     public final JPanel card;
 
+    private boolean debug;
+    private boolean mute;
+
     private Control device;
     private final Canvas c;
 
@@ -57,7 +62,12 @@ implements TreeSelectionListener, ChangeListener {
         player.setSurface(c);
 
         device = new Control();
+        int port = 0;
         try {
+            DatagramSocket sock = new DatagramSocket();
+            port = sock.getLocalPort();
+            sock.close();
+
             device.connect(t.device.id);
             Map<Integer,InetAddress[]> devices = Discover.discover(t.device.id);
             InetAddress[] endpoints = devices.get(t.device.id);
@@ -67,7 +77,14 @@ implements TreeSelectionListener, ChangeListener {
                     program.channel.getModulation() + ":" +
                     program.channel.number);
             device.set("program", Integer.toString(program.number));
-            device.set("target", "rtp://" + ip + ":5000");
+            device.set("target", "rtp://" + ip + ":" + port);
+        }
+        catch (SocketException e) {
+            JOptionPane.showMessageDialog(Main.frame, e.getMessage());
+            device.close();
+            device = null;
+            stopPlayer();
+            return;
         }
         catch (TunerException e) {
             JOptionPane.showMessageDialog(Main.frame, e.getMessage());
@@ -77,7 +94,7 @@ implements TreeSelectionListener, ChangeListener {
             return;
         }
         player.setVolume(volume);
-        player.play("rtp://@:5000");
+        player.play("rtp://@:" + port);
 
         Main.cards.show(Main.cardPane, CARD_NAME);
     }
@@ -135,5 +152,19 @@ implements TreeSelectionListener, ChangeListener {
             player.dispose();
         }
         player = p;
+        if (debug)
+            player.setDebug(debug);
+        if (mute)
+            player.mute(mute);
+    }
+
+    public void setMute(boolean m) {
+        mute = m;
+        getVideoPlayer().mute(m);
+    }
+
+    public void setDebug(boolean d) {
+        debug = d;
+        getVideoPlayer().setDebug(debug);
     }
 }

@@ -23,11 +23,16 @@ public class MplayerVideoPlayer implements VideoPlayer {
     private boolean playing;
     private String lastUri;
     private boolean muting;
+    boolean debug;
 
     private int volume;
 
     public static boolean isAvailable() {
-        return MplayerIO.findMplayer() != null;
+        return findMplayer() != null;
+    }
+
+    public void setDebug(boolean d) {
+        debug = d;
     }
 
     public void mute(boolean m) {
@@ -85,7 +90,74 @@ public class MplayerVideoPlayer implements VideoPlayer {
             io = new MplayerIO(Native.getComponentID(c));
     }
 
-    public static class MplayerIO {
+    static String MPLAYER_PATH;
+    static String findMplayer() {
+        if (MPLAYER_PATH != null)
+            return MPLAYER_PATH;
+        String executableName = Platform.isWindows() ?
+                "mplayer.exe" : "mplayer";
+        String PATH = System.getenv("PATH");
+        String[] paths = PATH.split(File.pathSeparator);
+
+        String path = null;
+        for (String dir : paths) {
+            File f = new File(dir, executableName);
+            if (f.exists() && f.isFile()) {
+                path = f.getPath();
+                break;
+            }
+        }
+
+        String resource = null;
+        if (Platform.isWindows()) {
+            resource = "win32/mplayer.exe";
+        } else if (Platform.isLinux()) {
+            resource = "linux/mplayer";
+            if (Platform.is64Bit())
+                resource = "linux64/mplayer";
+        } else if (Platform.isMac()) {
+            resource = "osx/mplayer";
+        }
+        if (resource != null) {
+            InputStream in = MplayerIO.class.getClassLoader(
+                    ).getResourceAsStream(resource);
+            if (in != null) {
+                FileChannel fc = null;
+                try {
+                    File mplayer = File.createTempFile("mplayer", ".exe");
+
+                    FileOutputStream fout = new FileOutputStream(mplayer);
+                    ReadableByteChannel rc = Channels.newChannel(in);
+                    fc = fout.getChannel();
+                    long pos = 0;
+                    long len;
+                    while ((len = fc.transferFrom(rc, pos, 32768)) > 0)
+                        pos += len;
+
+                    mplayer.setExecutable(true);
+                    mplayer.deleteOnExit();
+                    path = mplayer.getPath();
+                }
+                catch (IOException e) {
+                    throw new VideoPlayerException(e);
+                }
+                finally {
+                    try {
+                        in.close();
+                    }
+                    catch (IOException ex) { }
+                    try {
+                        if (fc != null)
+                            fc.close();
+                    }
+                    catch (IOException ex) { }
+                }
+            }
+        }
+        MPLAYER_PATH = path;
+        return path;
+    }
+    public class MplayerIO {
         private Process p;
         private PrintStream ps;
         volatile boolean isRunning;
@@ -106,11 +178,12 @@ public class MplayerVideoPlayer implements VideoPlayer {
                 //"-cache", "32",
                 "-ni",
                 "-slave",
-                "-really-quiet",
-                //"-quiet",
                 "-nocache",
                 "-idle"
             ));
+            if (!debug) {
+                args.add("-really-quiet");
+            }
             if (Platform.isWindows()) {
                 args.add("-vo");
                 args.add("direct3d");
@@ -180,77 +253,6 @@ public class MplayerVideoPlayer implements VideoPlayer {
             stopped = true;
             cmd("quit");
             p.destroy();
-        }
-        private static String MPLAYER_PATH;
-        static String findMplayer() {
-            if (MPLAYER_PATH != null)
-                return MPLAYER_PATH;
-            String executableName = Platform.isWindows() ?
-                    "mplayer.exe" : "mplayer";
-            String PATH = System.getenv("PATH");
-            String[] paths = PATH.split(File.pathSeparator);
-
-            String path = null;
-            for (String dir : paths) {
-                File f = new File(dir, executableName);
-                if (f.exists() && f.isFile()) {
-                    path = f.getPath();
-                    break;
-                }
-            }
-
-            String resource = null;
-            if (Platform.isWindows()) {
-                resource = "win32/mplayer.exe";
-            } else if (Platform.isLinux()) {
-                resource = "linux/mplayer";
-                if (Platform.is64Bit())
-                    resource = "linux64/mplayer";
-            } else if (Platform.isMac()) {
-                resource = "osx/mplayer";
-            }
-            if (resource != null) {
-                InputStream in = MplayerIO.class.getClassLoader(
-                        ).getResourceAsStream(resource);
-                if (in != null) {
-                    FileChannel fc = null;
-                    try {
-                        File mplayer = File.createTempFile("mplayer", ".exe");
-
-                        FileOutputStream fout = new FileOutputStream(mplayer);
-                        ReadableByteChannel rc = Channels.newChannel(in);
-                        fc = fout.getChannel();
-                        long pos = 0;
-                        long len;
-                        while ((len = fc.transferFrom(rc, pos, 32768)) > 0) {
-                            pos += len;
-                        }
-                        mplayer.setExecutable(true);
-                        mplayer.deleteOnExit();
-                        path = mplayer.getPath();
-                    }
-                    catch (IOException e) {
-                        throw new VideoPlayerException(e);
-                    }
-                    finally {
-                        try {
-                            in.close();
-                        }
-                        catch (IOException ex) { }
-                        try {
-                            if (fc != null)
-                                fc.close();
-                        }
-                        catch (IOException ex) { }
-                    }
-                }
-            }
-            MPLAYER_PATH = path;
-            return path;
-        }
-        public static void main(String[] args) {
-            String path = findMplayer();
-            System.out.println("Found mplayer at: " + path);
         }
     }
 }

@@ -36,6 +36,7 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
 
     private int volume;
     private boolean muting;
+    private boolean debug;
 
     VLCExternalVideoPlayer() {
         setVolume(50);
@@ -46,6 +47,13 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
         if (io != null)
             io.cmd("mute " + (muting ? 1 : 0));
     }
+
+    public void setDebug(boolean d) {
+        debug = d;
+        if (io != null)
+            io.cmd("debug " + (d ? 1 : 0));
+    }
+
     public void setVolume(int volume) {
         this.volume = volume;
         if (io != null && io.isRunning)
@@ -67,9 +75,10 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
         if (io == null)
             io = new IO(Native.getComponentID(c));
 
-        setVolume(volume);
+        setDebug(debug);
         mute(muting);
         io.cmd("play " + uri);
+        setVolume(volume);
         lastUri = uri;
         playing = true;
     }

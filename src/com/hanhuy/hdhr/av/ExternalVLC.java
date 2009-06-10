@@ -55,6 +55,13 @@ public class ExternalVLC implements Runnable {
                 player.mute(volume != 0);
             }
         });
+        commands.put("debug", new Command() {
+            public void execute(String... args) {
+                String s = args[0];
+                int debug = Integer.parseInt(s);
+                player.setDebug(debug != 0);
+            }
+        });
         commands.put("quit", new Command() {
             public void execute(String... args) {
                 player.dispose();

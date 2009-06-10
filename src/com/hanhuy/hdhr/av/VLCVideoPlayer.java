@@ -24,12 +24,14 @@ public class VLCVideoPlayer implements VideoPlayer {
 
     private final static String LIBVLC_VERSION;
 
-    private final static LibVlc libvlc;
+    private final static LibVlc _libvlc;
+    private LibVlc libvlc;
     private LibVlcMediaPlayer player;
     private LibVlcInstance instance;
     private static String libraryPath;
 
     private final static String JNA_PATH = "jna.library.path";
+    private boolean debug;
 
     private Component c;
     private long handle = 0xdeadbeef;
@@ -47,7 +49,7 @@ public class VLCVideoPlayer implements VideoPlayer {
     }
 
     public static boolean isAvailable() {
-        return libvlc != null;
+        return _libvlc != null;
     }
 
     static {
@@ -73,9 +75,9 @@ public class VLCVideoPlayer implements VideoPlayer {
             //lv = PrintWrapper.wrap(LibVlc.class, LibVlc.SYNC_INSTANCE);
         }
         catch (UnsatisfiedLinkError e) { }
-        libvlc = lv;
-        if (libvlc != null) {
-            LIBVLC_VERSION = libvlc.libvlc_get_version();
+        _libvlc = lv;
+        if (_libvlc != null) {
+            LIBVLC_VERSION = _libvlc.libvlc_get_version();
         } else
             LIBVLC_VERSION = null;
     }
@@ -83,6 +85,7 @@ public class VLCVideoPlayer implements VideoPlayer {
     VLCVideoPlayer() {
         System.out.println("LIBVLC_VERSION="+LIBVLC_VERSION);
         setVolume(50);
+        libvlc = _libvlc;
     }
 
     public void play(String uri) {
@@ -96,19 +99,25 @@ public class VLCVideoPlayer implements VideoPlayer {
         libraryPath = libraryPath != null ?
                 libraryPath : defaultLibraryPath;
         ArrayList<String> vlc_args = new ArrayList<String>(Arrays.asList(
-                //"-vvv",
+                "-vvv",
                 //"--ignore-config",
                 "-I",            "dummy",
                 //"--codec",       "avcodec", // avoid horrible libmpeg2 crashes
                 "--no-overlay",
                 "--no-video-title-show",
                 "--no-osd",
-                "--quiet",              "1",
-                "--verbose",            "0",
                 "--mouse-hide-timeout", "100",
                 "--video-filter",       "deinterlace",
                 "--deinterlace-mode",   "linear"
         ));
+        if (debug) {
+            vlc_args.add("-vvv");
+        } else {
+            vlc_args.add("--quiet");
+            vlc_args.add("1");
+            vlc_args.add("--verbose");
+            vlc_args.add("0");
+        }
         if (Platform.isWindows()) {
             if (libraryPath != null) {
                 vlc_args.add("--plugin-path");
@@ -214,6 +223,12 @@ public class VLCVideoPlayer implements VideoPlayer {
             libvlc.libvlc_audio_set_mute(instance, muting ? 1 : 0, ex);
             throwError(ex);
         }
+    }
+
+    public void setDebug(boolean d) {
+        debug = d;
+        libvlc = debug ?
+                (LibVlc) PrintWrapper.wrap(LibVlc.class, _libvlc) : _libvlc;
     }
     public void setVolume(int volume) {
         double value = volume * 1.9;

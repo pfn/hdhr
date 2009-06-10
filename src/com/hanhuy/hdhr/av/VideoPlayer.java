@@ -9,5 +9,6 @@ public interface VideoPlayer {
     void dispose();
     void setVolume(int volume);
     void mute(boolean muting);
+    void setDebug(boolean debug);
     //String getVolumeLabel(int level);
 }
