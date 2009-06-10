@@ -134,7 +134,8 @@ public class VLCVideoPlayer implements VideoPlayer {
                 vlc_args.toArray(new String[0]), ex);
         throwError(ex);
 
-        mute(muting);
+        if (muting)
+            mute(muting);
 
         libvlc.libvlc_audio_set_volume(instance, volume, ex);
         throwError(ex);

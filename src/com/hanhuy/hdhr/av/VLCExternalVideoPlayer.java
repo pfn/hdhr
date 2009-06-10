@@ -31,7 +31,7 @@ import com.sun.jna.Platform;
 public class VLCExternalVideoPlayer implements VideoPlayer {
     private IO io = null;
     private Component c;
-    private boolean playing;
+    volatile boolean playing;
     private String lastUri;
 
     private int volume;
@@ -114,7 +114,7 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
         js.eval("var file = entry.getDataFile()");
         return js.get("file").toString();
     }
-    public static class IO {
+    public class IO {
         private Process p;
         private PrintStream ps;
         volatile boolean isRunning;
@@ -188,8 +188,11 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
                 public void run() {
                     try {
                         p.waitFor();
+                        isRunning = false;
                         if (!stopped) {
                             System.out.println("[vlc exit] unexpected");
+                            if (playing)
+                                play(lastUri);
                             EventQueue.invokeLater(new Runnable() {
                                 public void run() {
                                     JOptionPane.showMessageDialog(Main.frame,
@@ -204,7 +207,6 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
                         System.out.println("[vlc exit] interrupted");
                         throw new RuntimeException(e);
                     }
-                    isRunning = false;
 
                 }
             }, "IO waitFor(vlc)").start();
@@ -222,8 +224,8 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
             cmd("quit");
             p.destroy();
         }
-        private static String JVM_PATH;
-        static String findJVM() {
+        private String JVM_PATH;
+        String findJVM() {
             if (JVM_PATH != null)
                 return JVM_PATH;
             String executableName = Platform.isWindows() ?
