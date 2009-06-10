@@ -200,7 +200,7 @@ public class Main extends ResourceBundleForm implements Runnable {
         initMenu(jframe);
 
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-        split.setResizeWeight(1.0);
+        split.setResizeWeight(0.5);
         TreePopupListener l = new TreePopupListener();
         final JTree tree = new JTree(model);
         tree.addMouseListener(l);
@@ -232,8 +232,6 @@ public class Main extends ResourceBundleForm implements Runnable {
                 ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
                 ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         pane.setPreferredSize(new Dimension(320, 540));
-        //pane.setMaximumSize(new Dimension(10000, 10000));
-        //split.setDividerLocation(320);
         split.setTopComponent(pane);
 
         cards    = new CardLayout();
