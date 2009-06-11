@@ -1,6 +1,5 @@
 package com.hanhuy.hdhr.av;
 
-import com.hanhuy.hdhr.ProgramCard;
 import com.hanhuy.hdhr.config.RTPProxy;
 import com.hanhuy.hdhr.config.UDPStream;
 
