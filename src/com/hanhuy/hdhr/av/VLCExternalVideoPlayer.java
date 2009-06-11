@@ -1,11 +1,12 @@
 package com.hanhuy.hdhr.av;
 
-import com.hanhuy.hdhr.Main;
+import com.hanhuy.hdhr.ProgramCard;
+import com.hanhuy.hdhr.config.RTPProxy;
+import com.hanhuy.hdhr.config.UDPStream;
 
 import java.awt.Component;
 import java.awt.EventQueue;
 
-import javax.swing.JOptionPane;
 import java.io.PrintStream;
 import java.io.InputStreamReader;
 import java.io.InputStream;
@@ -65,6 +66,19 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
         if (io != null) {
             io.dispose();
             io = null;
+        }
+    }
+
+
+    public void play(RTPProxy proxy) {
+        try {
+            UDPStream us = new UDPStream();
+            proxy.addPacketListener(us);
+            int port = us.getRemotePort();
+            play("udp://@localhost:" + port);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -200,15 +214,15 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
                         isRunning = false;
                         if (!stopped) {
                             System.out.println("[vlc exit] unexpected");
-                            if (playing)
+                            if (playing) {
                                 play(lastUri);
-                            EventQueue.invokeLater(new Runnable() {
-                                public void run() {
-                                    JOptionPane.showMessageDialog(Main.frame,
-                                            "Backend process died " + 
-                                            "unexpectedly, restarting process");
-                                }
-                            });
+                                System.out.println("[vlc exit] " +
+                                        "Backend process died while playing, " +
+                                        "restarting process");
+                            } else {
+                                System.out.println("[vlc exit] " +
+                                        "Backend process died.");
+                            }
                         } else
                             System.out.println("[vlc exit] clean");
                     }

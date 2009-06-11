@@ -66,6 +66,7 @@ public class ChannelScan {
             if (e.cancelled)
                 break;
 
+            c.getPrograms().clear();
             String streaminfo = getStreamInfo(connection, c);
             e = new ScanEvent(c, map, index, streaminfo);
             if (c.getPrograms().size() > 0) {
@@ -182,12 +183,12 @@ public class ChannelScan {
         String lock = null;
         Map<String,String> stat;
         do {
+            sleep(250);
             String status = connection.get("status");
             stat = Control.parseStatus(status);
             String ssStr = stat.get("ss");
             ss = Integer.parseInt(ssStr);
             lock = stat.get("lock");
-            sleep(250);
         } while (System.currentTimeMillis() < timeo && ss > 45
                 && "none".equals(lock));
 
@@ -206,11 +207,11 @@ public class ChannelScan {
         int seq = 0;
         Map<String,String> stat;
         do {
+            sleep(250);
             String status = connection.get("status");
             stat = Control.parseStatus(status);
             String seqStr = stat.get("seq");
             seq = Integer.parseInt(seqStr);
-            sleep(250);
         }  while (System.currentTimeMillis() < timeo && seq != 100);
         return stat;
     }

@@ -3,6 +3,7 @@ package com.hanhuy.hdhr;
 import com.hanhuy.common.ui.ResourceBundleForm;
 import com.hanhuy.hdhr.av.VideoPlayer;
 import com.hanhuy.hdhr.av.VideoPlayerFactory;
+import com.hanhuy.hdhr.config.RTPProxy;
 import com.hanhuy.hdhr.config.Discover;
 import com.hanhuy.hdhr.config.Control;
 import com.hanhuy.hdhr.config.TunerException;
@@ -13,10 +14,9 @@ import java.awt.Canvas;
 import java.awt.Color;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseAdapter;
+import java.io.IOException;
 import java.util.Map;
 import java.net.InetAddress;
-import java.net.DatagramSocket;
-import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -42,7 +42,9 @@ implements TreeSelectionListener, ChangeListener {
     private boolean debug;
     private boolean mute;
 
+
     private Control device;
+    private RTPProxy proxy;
     private final Canvas c;
 
     private int volume = DEFAULT_VOLUME;
@@ -62,24 +64,25 @@ implements TreeSelectionListener, ChangeListener {
         player.setSurface(c);
 
         device = new Control();
-        int port = 0;
+        int port;
         try {
-            DatagramSocket sock = new DatagramSocket();
-            port = sock.getLocalPort();
-            sock.close();
 
             device.connect(t.device.id);
             Map<Integer,InetAddress[]> devices = Discover.discover(t.device.id);
             InetAddress[] endpoints = devices.get(t.device.id);
             String ip = endpoints[0].getHostAddress();
+
+            proxy = new RTPProxy(endpoints[0]);
+            port = proxy.getLocalPort();
             device.lock(t.tuner);
             device.set("channel",
                     program.channel.getModulation() + ":" +
                     program.channel.number);
             device.set("program", Integer.toString(program.number));
-            device.set("target", "rtp://" + ip + ":" + port);
+            String target = "rtp://" + ip + ":" + port;
+            device.set("target", target);
         }
-        catch (SocketException e) {
+        catch (IOException e) {
             JOptionPane.showMessageDialog(Main.frame, e.getMessage());
             device.close();
             device = null;
@@ -94,7 +97,7 @@ implements TreeSelectionListener, ChangeListener {
             return;
         }
         player.setVolume(volume);
-        player.play("rtp://@:" + port);
+        player.play(proxy);
 
         Main.cards.show(Main.cardPane, CARD_NAME);
     }
@@ -125,6 +128,10 @@ implements TreeSelectionListener, ChangeListener {
             finally {
                 device.close();
             }
+        }
+        if (proxy != null) {
+            proxy.close();
+            proxy = null;
         }
 
         if (player != null) {
@@ -166,5 +173,9 @@ implements TreeSelectionListener, ChangeListener {
     public void setDebug(boolean d) {
         debug = d;
         getVideoPlayer().setDebug(debug);
+    }
+    
+    public RTPProxy getProxy() {
+        return proxy;
     }
 }

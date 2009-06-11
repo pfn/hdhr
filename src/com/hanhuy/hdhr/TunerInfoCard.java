@@ -38,6 +38,10 @@ implements TreeSelectionListener {
     private JProgressBar snqBar = new JProgressBar();
     private JProgressBar seqBar = new JProgressBar();
 
+    public final static Color red    = new Color(0xFF, 0, 0);
+    public final static Color yellow = new Color(0xFF, 0xCC, 0);
+    public final static Color green  = new Color(0, 0xAA, 0);
+
     private TunerInfoCard() {
         card = new JPanel();
         card.setLayout(createLayoutManager());
@@ -85,6 +89,7 @@ implements TreeSelectionListener {
             if (task.isProgram) {
                 setStatusBars(Main.ssBar, Main.snqBar, Main.seqBar,
                         ss, seq, snq, status.get("lock"), true);
+                setNetBar();
             } else {
                 setStatusBars(ssBar, snqBar, seqBar, ss, seq, snq,
                         status.get("lock"), false);
@@ -106,13 +111,37 @@ implements TreeSelectionListener {
         }
     }
 
+    private int lastCount;
+    private int lastErrorCount;
+    private void setNetBar() {
+        if (ProgramCard.INSTANCE.getProxy() == null) return;
+        int count = ProgramCard.INSTANCE.getProxy().getPacketCount();
+        int packets = count - lastCount;
+
+        int errors = ProgramCard.INSTANCE.getProxy().getErrorsCount();
+        int le = errors - lastErrorCount;
+        int quality = (int) ((1.0 - ((double) le / packets)) * 100);
+
+        Main.netBar.setValue(quality);
+        Main.netBar.setString(String.format("q=%d%% pps=%d err=%d",
+                quality, packets, errors));
+
+        Color barColor;
+        if (quality > 95) 
+            barColor = green;
+        else if (quality > 90)
+            barColor = yellow;
+        else
+            barColor = red;
+        Main.netBar.setForeground(barColor);
+        lastCount = count;
+        lastErrorCount = errors;
+    }
+
     private void setStatusBars(
             JProgressBar ssBar, JProgressBar snqBar, JProgressBar seqBar,
             int ss, int seq, int snq, String lock, boolean showLabels) {
         Color ssColor;
-        Color red    = new Color(0xFF, 0, 0);
-        Color yellow = new Color(0xFF, 0xCC, 0);
-        Color green  = new Color(0, 0xAA, 0);
         if ("8vsb".equals(lock) ||
                 Arrays.asList("t8", "t7", "t6").contains(lock.substring(0, 2)))
         {
@@ -155,6 +184,7 @@ implements TreeSelectionListener {
         Object[] path = e.getPath().getPath();
         Object item = path[path.length - 1];
 
+        Main.netBar.setVisible(false);
         Main.ssBar.setVisible(false);
         Main.seqBar.setVisible(false);
         Main.snqBar.setVisible(false);
@@ -163,13 +193,14 @@ implements TreeSelectionListener {
             task = new RepeatingTask();
             new Thread(task, "TunerInfoCard").start();
             Main.cards.show(Main.cardPane, CARD_NAME);
-        } else if (item instanceof Program) {
+        } else if (item instanceof Program && e.isAddedPath()) {
             lastTuner = (Tuner) path[path.length - 2];
 
             task = new RepeatingTask();
             task.isProgram = true;
             new Thread(task, "TunerInfo-ProgramCard").start();
 
+            Main.netBar.setVisible(true);
             Main.ssBar.setVisible(true);
             Main.seqBar.setVisible(true);
             Main.snqBar.setVisible(true);

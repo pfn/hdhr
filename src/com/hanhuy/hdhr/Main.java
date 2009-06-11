@@ -40,6 +40,8 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 
 import javax.swing.JList;
 import javax.swing.JCheckBoxMenuItem;
@@ -84,7 +86,7 @@ public class Main extends ResourceBundleForm implements Runnable {
 
     static DeviceTreeModel model = new DeviceTreeModel();
 
-    static JProgressBar ssBar, seqBar, snqBar;
+    static JProgressBar netBar, ssBar, seqBar, snqBar;
 
     public static void main(String[] args) throws Exception {
         if (System.getProperty("com.hanhuy.hdhr.console") != null)
@@ -211,7 +213,6 @@ public class Main extends ResourceBundleForm implements Runnable {
         initMenu(jframe);
 
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-        split.setResizeWeight(0.5);
         TreePopupListener l = new TreePopupListener();
         final JTree tree = new JTree(model);
         tree.addMouseListener(l);
@@ -283,6 +284,14 @@ public class Main extends ResourceBundleForm implements Runnable {
         */
 
         topPane.add(Box.createHorizontalGlue());
+
+        netBar = new JProgressBar();
+        netBar.setStringPainted(true);
+        netBar.setString("pps:");
+        netBar.setMaximumSize(new Dimension(120, 20));
+        topPane.add(netBar);
+        netBar.setVisible(false);
+        topPane.add(Box.createHorizontalStrut(5));
 
         ssBar = new JProgressBar();
         ssBar.setStringPainted(true);
@@ -461,8 +470,14 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
                 ProgressDialog d = new ProgressDialog(
                         Main.frame, "Scanning");
                 final ScanningRunnable r = new ScanningRunnable(t);
-                d.showProgress(r, new Runnable() {
+                d.showProgress(r, new ProgressAwareRunnable() {
+                    ProgressBar b;
+                    public void setProgressBar(ProgressBar b) {
+                        this.b = b;
+                    }
                     public void run() {
+                        b.setIndeterminate(true);
+                        b.setString("Cancelling scan...");
                         r.cancelled = true;
                     }
                 });
@@ -820,9 +835,9 @@ class ScanningRunnable implements ProgressAwareRunnable {
     ScanningRunnable(Tuner t) {
         this.t = t;
     }
-    JProgressBar bar;
+    ProgressBar bar;
     Tuner t;
-    public void setJProgressBar(JProgressBar b) {
+    public void setProgressBar(ProgressBar b) {
         bar = b;
     }
     public void run() {
@@ -889,6 +904,16 @@ class ScanningRunnable implements ProgressAwareRunnable {
             if (cancelled)
                 return;
 
+            HashSet<Program> nodupes = new HashSet<Program>();
+            for (Iterator<Program> i = programs.iterator(); i.hasNext();) {
+                Program p = i.next();
+                if (nodupes.contains(p)) {
+                    System.out.println(
+                            "Removing duplicate program from scan: " + p);
+                    i.remove();
+                }
+                nodupes.add(p);
+            }
             System.out.println("Found " + programs.size() + " programs");
             Main.model.programMap.put(t, programs);
             EventQueue.invokeLater(new Runnable() {

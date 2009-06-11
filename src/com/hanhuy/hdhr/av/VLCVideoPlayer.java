@@ -1,8 +1,12 @@
 package com.hanhuy.hdhr.av;
 
+import com.hanhuy.hdhr.config.RTPProxy;
+import com.hanhuy.hdhr.config.UDPStream;
+
 import java.awt.Component;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.io.IOException;
 
 import org.videolan.jvlc.internal.LibVlc;
 import org.videolan.jvlc.internal.LibVlc.libvlc_exception_t;
@@ -88,6 +92,20 @@ public class VLCVideoPlayer implements VideoPlayer {
         libvlc = _libvlc;
     }
 
+
+
+    public void play(RTPProxy proxy) {
+        try {
+            UDPStream us = new UDPStream();
+            proxy.addPacketListener(us);
+            int port = us.getRemotePort();
+            play("udp://@localhost:" + port);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public void play(String uri) {
         final libvlc_exception_t ex = new libvlc_exception_t();
 
@@ -102,7 +120,7 @@ public class VLCVideoPlayer implements VideoPlayer {
                 "-vvv",
                 //"--ignore-config",
                 "-I",            "dummy",
-                //"--codec",       "avcodec", // avoid horrible libmpeg2 crashes
+                "--codec",       "avcodec", // avoid horrible libmpeg2 crashes
                 "--no-overlay",
                 "--no-video-title-show",
                 "--no-osd",

@@ -1,5 +1,8 @@
 package com.hanhuy.hdhr.av;
 
+import com.hanhuy.hdhr.config.RTPProxy;
+import com.hanhuy.hdhr.config.UDPStream;
+
 import java.awt.Component;
 import java.io.PrintStream;
 import java.io.InputStreamReader;
@@ -56,6 +59,18 @@ public class MplayerVideoPlayer implements VideoPlayer {
         if (io != null) {
             io.dispose();
             io = null;
+        }
+    }
+
+    public void play(RTPProxy proxy) {
+        try {
+            UDPStream us = new UDPStream();
+            proxy.addPacketListener(us);
+            int port = us.getRemotePort();
+            play("udp://@localhost:" + port);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 

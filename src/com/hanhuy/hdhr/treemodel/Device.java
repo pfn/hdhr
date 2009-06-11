@@ -18,7 +18,7 @@ public class Device implements Serializable, Comparable<Device> {
     }
     @Override
     public String toString() {
-        return Integer.toHexString(id);
+        return Integer.toHexString(id).toUpperCase();
     }
 
     @Override

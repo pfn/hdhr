@@ -46,12 +46,15 @@ public class ProgressDialog extends ResourceBundleForm {
         showProgress(r, null);
     }
     public void showProgress(final Runnable r, final Runnable cancel) {
+        ProgressBar b = new ProgressBar(bar);
+        if (r instanceof ProgressAwareRunnable)
+            ((ProgressAwareRunnable)r).setProgressBar(b);
+        if (cancel instanceof ProgressAwareRunnable)
+            ((ProgressAwareRunnable)cancel).setProgressBar(b);
         addCancelButton(cancel);
         bar.setIndeterminate(true);
         Thread t = new Thread(new Runnable() {
             public void run() {
-                if (r instanceof ProgressAwareRunnable)
-                    ((ProgressAwareRunnable)r).setJProgressBar(bar);
                 try {
                     r.run();
                 }
