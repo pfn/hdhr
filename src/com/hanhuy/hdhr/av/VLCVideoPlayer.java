@@ -120,7 +120,7 @@ public class VLCVideoPlayer implements VideoPlayer {
                 "-vvv",
                 //"--ignore-config",
                 "-I",            "dummy",
-                "--codec",       "avcodec", // avoid horrible libmpeg2 crashes
+                //"--codec",       "avcodec", // avoid horrible libmpeg2 crashes
                 "--no-overlay",
                 "--no-video-title-show",
                 "--no-osd",
