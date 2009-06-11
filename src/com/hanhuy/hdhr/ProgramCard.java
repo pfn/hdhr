@@ -170,6 +170,10 @@ implements TreeSelectionListener, ChangeListener {
         getVideoPlayer().mute(m);
     }
 
+    public boolean isDebug() {
+        return debug;
+    }
+
     public void setDebug(boolean d) {
         debug = d;
         getVideoPlayer().setDebug(debug);

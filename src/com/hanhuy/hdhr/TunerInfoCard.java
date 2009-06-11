@@ -123,8 +123,11 @@ implements TreeSelectionListener {
         int quality = (int) ((1.0 - ((double) le / packets)) * 100);
 
         Main.netBar.setValue(quality);
-        Main.netBar.setString(String.format("q=%d%% pps=%d err=%d",
-                quality, packets, errors));
+        String s = String.format(
+                "q=%d%% pps=%d err=%d", quality, packets, errors);
+        Main.netBar.setString(s);
+        if (ProgramCard.INSTANCE.isDebug())
+            System.out.println("[tuner status] " + s);
 
         Color barColor;
         if (quality > 95) 
