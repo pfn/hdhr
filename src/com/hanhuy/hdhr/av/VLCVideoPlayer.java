@@ -44,7 +44,7 @@ public class VLCVideoPlayer implements VideoPlayer {
 
     private final static long DEADBEEF = 0xdeadbeef;
 
-    private int volume = 100;
+    private int volume;
 
     public void setSurface(Component c) {
         this.c = c;
@@ -123,7 +123,7 @@ public class VLCVideoPlayer implements VideoPlayer {
                 //"--ignore-config",
                 "-I",            "dummy",
                 //"--codec",       "avcodec", // avoid horrible libmpeg2 crashes
-                //"--no-overlay",
+                "--no-overlay",
                 "--no-video-title-show",
                 "--no-osd",
                 "--mouse-hide-timeout", "100",
@@ -163,8 +163,7 @@ public class VLCVideoPlayer implements VideoPlayer {
                 vlc_args.toArray(new String[0]), ex);
         throwError(ex);
 
-        libvlc.libvlc_audio_set_volume(instance, volume, ex);
-        throwError(ex);
+        setVolume(volume);
 
         if (muting)
             mute(muting);
@@ -253,6 +252,7 @@ public class VLCVideoPlayer implements VideoPlayer {
                 (LibVlc) PrintWrapper.wrap(LibVlc.class, _libvlc) : _libvlc;
     }
     public void setVolume(int volume) {
+        this.volume = volume;
         double value = volume * 1.9;
         double dB = getDB((int) Math.round(value));
 
