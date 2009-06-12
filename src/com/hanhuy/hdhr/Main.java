@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Properties;
 
 import javax.swing.JList;
 import javax.swing.JCheckBoxMenuItem;
@@ -233,6 +234,43 @@ public class Main extends ResourceBundleForm implements Runnable {
         });
         debugItem.setAction(debugAction);
         menu.add(debugItem);
+
+        menubar.add(menu);
+
+        menu = new JMenu(getString("helpMenuTitle"));
+        menu.setMnemonic(getChar("helpMenuMnemonic"));
+
+        menu.add(new RunnableAction("About", KeyEvent.VK_A, new Runnable() {
+            public void run() {
+                java.io.InputStream in = getClass().getResourceAsStream(
+                        "version.properties");
+                if (in == null) {
+                    JOptionPane.showMessageDialog(
+                            Main.frame, "Unable to determine version");
+                    return;
+                }
+                try {
+                    Properties p = new Properties();
+                    p.load(in);
+
+                    String version = p.getProperty("revision");
+                    String timestamp = p.getProperty("time");
+                    String message = format("aboutString", version, timestamp);
+                    JOptionPane.showMessageDialog(Main.frame,
+                            message, "About", JOptionPane.PLAIN_MESSAGE);
+                }
+                catch (IOException e) {
+                    JOptionPane.showMessageDialog(
+                            Main.frame, "Unable to determine version");
+                }
+                finally {
+                    try {
+                        in.close();
+                    }
+                    catch (IOException e) { }
+                }
+            }
+        }));
 
         menubar.add(menu);
     }

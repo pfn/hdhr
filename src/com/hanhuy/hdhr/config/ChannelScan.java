@@ -139,6 +139,9 @@ public class ChannelScan {
                     encrypted++;
                     continue;
                 }
+                if (line.contains("(control)")) {
+                    continue;
+                }
 
                 if (!m.matches())
                     continue;
