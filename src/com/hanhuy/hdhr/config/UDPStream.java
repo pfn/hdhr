@@ -30,9 +30,15 @@ public class UDPStream implements RTPProxy.PacketListener {
     }
 
     public void close() {
-        ds.close();
+        if (ds != null)
+            ds.close();
         ds = null;
     }
+
+    public boolean isClosed() {
+        return ds == null;
+    }
+
     public void packetArrived(RTPProxy.PacketEvent e) throws IOException {
         byte[] packet = e.packet;
         if (ds == null)

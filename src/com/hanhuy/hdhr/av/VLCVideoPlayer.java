@@ -19,6 +19,8 @@ import com.sun.jna.Platform;
 import com.sun.jna.Pointer;
 
 public class VLCVideoPlayer implements VideoPlayer {
+    private UDPStream us;
+
     private final static int VLC_VOLUME_MAX = 200;
 
     public final static int SLIDER_VOLUME_0DB = 160;
@@ -96,7 +98,7 @@ public class VLCVideoPlayer implements VideoPlayer {
 
     public void play(RTPProxy proxy) {
         try {
-            UDPStream us = new UDPStream();
+            us = new UDPStream();
             proxy.addPacketListener(us);
             int port = us.getRemotePort();
             play("udp://@localhost:" + port);
@@ -121,7 +123,7 @@ public class VLCVideoPlayer implements VideoPlayer {
                 //"--ignore-config",
                 "-I",            "dummy",
                 //"--codec",       "avcodec", // avoid horrible libmpeg2 crashes
-                "--no-overlay",
+                //"--no-overlay",
                 "--no-video-title-show",
                 "--no-osd",
                 "--mouse-hide-timeout", "100",
@@ -227,6 +229,8 @@ public class VLCVideoPlayer implements VideoPlayer {
 
     public void dispose() {
         stop();
+        if (us != null)
+            us.close();
     }
 
     private void throwError(LibVlc.libvlc_exception_t ex) {

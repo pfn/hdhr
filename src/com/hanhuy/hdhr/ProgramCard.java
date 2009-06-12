@@ -57,7 +57,10 @@ implements TreeSelectionListener, ChangeListener {
 
         c.setBackground(Color.black);
         card.add(c, "canvas");
-        setVideoPlayer(VideoPlayerFactory.getVideoPlayer());
+        String defaultBackend = Preferences.getInstance().videoBackend;
+        setVideoPlayer(defaultBackend == null ?
+                VideoPlayerFactory.getVideoPlayer() :
+                VideoPlayerFactory.getVideoPlayer(defaultBackend));
     }
 
     private void setProgram(Tuner t, Program program) {
@@ -154,15 +157,25 @@ implements TreeSelectionListener, ChangeListener {
         return player;
     }
     public void setVideoPlayer(VideoPlayer p) {
+        if (p == null) return;
+        if (proxy != null)
+            proxy.clearPacketListeners();
         if (player != null) {
             player.stop();
             player.dispose();
         }
+
         player = p;
         if (debug)
             player.setDebug(debug);
         if (mute)
             player.mute(mute);
+
+        if (proxy != null) {
+            player.setSurface(c);
+            player.setVolume(volume);
+            player.play(proxy);
+        }
     }
 
     public void setMute(boolean m) {
@@ -175,8 +188,9 @@ implements TreeSelectionListener, ChangeListener {
     }
 
     public void setDebug(boolean d) {
+        if (player == null) return;
         debug = d;
-        getVideoPlayer().setDebug(debug);
+        player.setDebug(debug);
     }
     
     public RTPProxy getProxy() {

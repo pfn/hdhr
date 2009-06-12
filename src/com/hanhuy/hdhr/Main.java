@@ -74,6 +74,7 @@ import javax.swing.DefaultBoundedRangeModel;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.tree.TreePath;
+import javax.swing.tree.TreeSelectionModel;
 import javax.swing.event.TreeSelectionEvent;
 import javax.swing.event.TreeSelectionListener;
 import javax.swing.plaf.basic.BasicSliderUI;
@@ -83,6 +84,8 @@ public class Main extends ResourceBundleForm implements Runnable {
     public static JFrame frame;
     public static CardLayout cards;
     public static JPanel cardPane;
+
+    private JTree tree;
 
     static DeviceTreeModel model = new DeviceTreeModel();
 
@@ -98,6 +101,7 @@ public class Main extends ResourceBundleForm implements Runnable {
         PropertyEditorManager.registerEditor(Font.class,
                 FontEditor.class);
 
+        Preferences.getInstance();
         EventQueue.invokeLater(new Main());
     }
 
@@ -172,6 +176,21 @@ public class Main extends ResourceBundleForm implements Runnable {
                 changeFontSize(false);
             }
         }));
+        menu.addSeparator();
+        menu.add(new RunnableAction("Jump to last program", KeyEvent.VK_J,
+                "control J", new Runnable() {
+            public void run() {
+                TreePath last = Preferences.getInstance().lastViewedPath;
+                if (last == null) {
+                    JOptionPane.showMessageDialog(Main.frame,
+                            "You have not yet viewed any programs");
+                    return;
+                }
+                tree.expandPath(last.getParentPath());
+                tree.scrollPathToVisible(last);
+                tree.setSelectionPath(last);
+            }
+        }));
 
         menubar.add(menu);
         menu = new JMenu(getString("backendsMenuTitle"));
@@ -182,13 +201,16 @@ public class Main extends ResourceBundleForm implements Runnable {
         ActionListener l = new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 String c = e.getActionCommand();
+                Preferences.getInstance().videoBackend = c;
                 ProgramCard.INSTANCE.setVideoPlayer(
                         VideoPlayerFactory.getVideoPlayer(c));
             }
         };
+        String defaultBackend = Preferences.getInstance().videoBackend;
         for (int i = 0, j = backends.length; i < j; i++) {
             JRadioButtonMenuItem item = new JRadioButtonMenuItem(
-                    backends[i], i == 0);
+                    backends[i], defaultBackend == null ?
+                            i == 0 : backends[i].equals(defaultBackend));
             g.add(item);
             item.setActionCommand(backends[i]);
             item.addActionListener(l);
@@ -196,10 +218,17 @@ public class Main extends ResourceBundleForm implements Runnable {
         }
         menu.addSeparator();
         final JCheckBoxMenuItem debugItem = new JCheckBoxMenuItem();
+        boolean pDebug = Preferences.getInstance().programDebug;
+        if (pDebug) {
+            debugItem.setState(pDebug);
+            ProgramCard.INSTANCE.setDebug(pDebug);
+        }
         RunnableAction debugAction = new RunnableAction(
                 "Debug", new Runnable() {
             public void run() {
-                ProgramCard.INSTANCE.setDebug(debugItem.isSelected());
+                boolean debug = debugItem.isSelected();
+                Preferences.getInstance().programDebug = debug;
+                ProgramCard.INSTANCE.setDebug(debug);
             }
         });
         debugItem.setAction(debugAction);
@@ -207,14 +236,21 @@ public class Main extends ResourceBundleForm implements Runnable {
 
         menubar.add(menu);
     }
+
     public void run() {
+        if (Preferences.getInstance().fontDelta != 0)
+            changeFontSize(Preferences.getInstance().fontDelta);
+
         JFrame jframe = new JFrame(getString("title"));
         jframe.setIconImage(((ImageIcon)getIcon("icon")).getImage());
         initMenu(jframe);
 
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
         TreePopupListener l = new TreePopupListener();
-        final JTree tree = new JTree(model);
+        tree = new JTree(model);
+        tree.setExpandsSelectedPaths(true);
+        tree.getSelectionModel().setSelectionMode(
+                TreeSelectionModel.SINGLE_TREE_SELECTION);
         tree.addMouseListener(l);
         tree.addTreeSelectionListener(new TreeSelectionListener() {
             public void valueChanged(TreeSelectionEvent e) {
@@ -390,6 +426,10 @@ public class Main extends ResourceBundleForm implements Runnable {
     private Map<Object,Object> defaults = new HashMap<Object,Object>();
     private void changeFontSize(boolean increase) {
         int increment = increase ? 1 : -1;
+        Preferences.getInstance().fontDelta += increment;
+        changeFontSize(increment);
+    }
+    private void changeFontSize(int delta) {
         Enumeration<Object> keys = UIManager.getDefaults().keys();
         for (Object key : Collections.list(keys)) {
             Object value = UIManager.get(key);
@@ -398,16 +438,19 @@ public class Main extends ResourceBundleForm implements Runnable {
                     defaults.put(key, value);
                 FontUIResource f = (FontUIResource) value;
                 FontUIResource nf = new FontUIResource(f.getName(),
-                    f.getStyle(), f.getSize() + increment);
+                    f.getStyle(), f.getSize() + delta);
                 UIManager.put(key, nf);
             }
         }
-        SwingUtilities.updateComponentTreeUI(Main.frame);
+        if (Main.frame != null)
+            SwingUtilities.updateComponentTreeUI(Main.frame);
     }
     private void resetFontSize() {
+        Preferences.getInstance().fontDelta = 0;
         for (Object key : defaults.keySet())
             UIManager.put(key, defaults.get(key));
-        SwingUtilities.updateComponentTreeUI(Main.frame);
+        if (Main.frame != null)
+            SwingUtilities.updateComponentTreeUI(Main.frame);
     }
 
     void exit() {
@@ -415,6 +458,7 @@ public class Main extends ResourceBundleForm implements Runnable {
         frame.dispose();
 
         ProgramCard.INSTANCE.stopPlayer(true);
+        Preferences.save();
         System.exit(0);
     }
 
@@ -807,6 +851,8 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
     public void valueChanged(TreeSelectionEvent e) {
         path = e.getPath();
         value = e.getPath().getLastPathComponent();
+        if (value instanceof Program)
+            Preferences.getInstance().lastViewedPath = path;
     }
 
     public void mousePressed(MouseEvent e)  { maybeShowPopup(e); }

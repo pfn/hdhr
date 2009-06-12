@@ -59,6 +59,10 @@ public class HTTPStream implements RTPProxy.PacketListener {
         server.start();
     }
 
+    public boolean isClosed() {
+        return shutdown;
+    }
+
     public void close() {
         shutdown = true;
         for (OutputStream out : streams) {

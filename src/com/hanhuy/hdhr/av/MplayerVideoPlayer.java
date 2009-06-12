@@ -21,6 +21,8 @@ import com.sun.jna.Native;
 import com.sun.jna.Platform;
 
 public class MplayerVideoPlayer implements VideoPlayer {
+    private UDPStream us;
+
     private MplayerIO io = null;
     private Component c;
     private boolean playing;
@@ -60,11 +62,14 @@ public class MplayerVideoPlayer implements VideoPlayer {
             io.dispose();
             io = null;
         }
+
+        if (us != null)
+            us.close();
     }
 
     public void play(RTPProxy proxy) {
         try {
-            UDPStream us = new UDPStream();
+            us = new UDPStream();
             proxy.addPacketListener(us);
             int port = us.getRemotePort();
             play("udp://@localhost:" + port);
@@ -101,8 +106,10 @@ public class MplayerVideoPlayer implements VideoPlayer {
                 dispose();
         }
         this.c = c;
+        long id = Native.getComponentID(c);
+        System.out.println("[mplayer] drawing to window id " + id);
         if (io == null)
-            io = new MplayerIO(Native.getComponentID(c));
+            io = new MplayerIO(id);
     }
 
     static String MPLAYER_PATH;
@@ -183,9 +190,8 @@ public class MplayerVideoPlayer implements VideoPlayer {
             args.addAll(Arrays.asList(
                 "-lavdopts",
                   "fast:ec=1:threads=3:skipframe=nonref:skiploopfilter=all",
-                "-vf", "pp=fd,spp,scale",
+                "-vf", "pp=li",
                 "-noslices",
-                "-sws", "0",
                 //"-framedrop",
                 "-hardframedrop",
                 "-vc", "ffmpeg2", // for -hardframedrop
@@ -242,16 +248,25 @@ public class MplayerVideoPlayer implements VideoPlayer {
                 public void run() {
                     try {
                         p.waitFor();
-                        if (!stopped)
+                        isRunning = false;
+                        if (!stopped) {
                             System.out.println("[mplayer exit] unexpected");
-                        else
+                            if (playing) {
+                                play(lastUri);
+                                System.out.println("[mplayer exit] " +
+                                        "Backend process died while playing, " +
+                                        "restarting process");
+                            } else {
+                                System.out.println("[mplayer exit] " +
+                                        "Backend process died.");
+                            }
+                        } else
                             System.out.println("[mplayer exit] clean");
                     }
                     catch (InterruptedException e) {
                         System.out.println("[mplayer exit] interrupted");
                         throw new RuntimeException(e);
                     }
-                    isRunning = false;
 
                 }
             }, "MplayerIO waitFor(mplayer)").start();

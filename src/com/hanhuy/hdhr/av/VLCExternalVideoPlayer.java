@@ -2,6 +2,7 @@ package com.hanhuy.hdhr.av;
 
 import com.hanhuy.hdhr.config.RTPProxy;
 import com.hanhuy.hdhr.config.UDPStream;
+import com.hanhuy.hdhr.config.HTTPStream;
 
 import java.awt.Component;
 import java.awt.EventQueue;
@@ -29,6 +30,9 @@ import com.sun.jna.Native;
 import com.sun.jna.Platform;
 
 public class VLCExternalVideoPlayer implements VideoPlayer {
+    public static enum Mode { UDP, HTTP };
+
+    private RTPProxy.PacketListener l;
     private IO io = null;
     private Component c;
     volatile boolean playing;
@@ -38,7 +42,10 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
     private boolean muting;
     private boolean debug;
 
-    VLCExternalVideoPlayer() {
+    private Mode mode;
+
+    VLCExternalVideoPlayer(Mode m) {
+        mode = m;
         setVolume(50);
     }
 
@@ -66,15 +73,36 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
             io.dispose();
             io = null;
         }
+        try {
+            if (l != null)
+                l.close();
+        }
+        catch (IOException e) { }
     }
 
 
     public void play(RTPProxy proxy) {
         try {
-            UDPStream us = new UDPStream();
-            proxy.addPacketListener(us);
-            int port = us.getRemotePort();
-            play("udp://@localhost:" + port);
+            int port;
+            String url;
+            switch (mode) {
+            case HTTP:
+                HTTPStream hs = new HTTPStream();
+                l = hs;
+                port = hs.getLocalPort();
+                url = "http://localhost:" + port;
+                break;
+            case UDP:
+                UDPStream us = new UDPStream();
+                l = us;
+                port = us.getRemotePort();
+                url = "udp://@:" + port;
+                break;
+            default:
+                throw new IllegalArgumentException(mode.toString());
+            }
+            proxy.addPacketListener(l);
+            play(url);
         }
         catch (IOException e) {
             throw new RuntimeException(e);
@@ -110,8 +138,10 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
                 dispose();
         }
         this.c = c;
+        long id = Native.getComponentID(c);
+        System.out.println("[vlc] drawing to window id " + id);
         if (io == null)
-            io = new IO(Native.getComponentID(c));
+            io = new IO(id);
     }
 
     static URL getJarURL(String path) {
@@ -205,7 +235,7 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
                         catch (IOException e) { }
                     }
                 }
-            }, "IO stdout/stderr").start();
+            }, "IO stdout/stderr (vlc)").start();
             new Thread(new Runnable() {
                 public void run() {
                     try {

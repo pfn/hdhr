@@ -175,16 +175,30 @@ public class RTPProxy implements Runnable {
         PacketEvent e = new PacketEvent(packet);
         if (shutdown) return;
         synchronized (listeners) {
-            for (PacketListener l : listeners)
-                l.packetArrived(e);
+            for (Iterator<PacketListener> i = listeners.iterator();
+                    i.hasNext();) {
+                PacketListener l = i.next();
+                if (l.isClosed())
+                    i.remove();
+                else
+                    l.packetArrived(e);
+            }
+        }
+    }
+    public void clearPacketListeners() {
+        synchronized (listeners) {
+            listeners.clear();
         }
     }
     public void addPacketListener(PacketListener l) {
-        listeners.add(l);
+        synchronized (listeners) {
+            listeners.add(l);
+        }
     }
 
     public interface PacketListener extends EventListener, Closeable {
         public void packetArrived(PacketEvent e) throws IOException;
+        public boolean isClosed();
     }
 
     public class PacketEvent extends EventObject {
