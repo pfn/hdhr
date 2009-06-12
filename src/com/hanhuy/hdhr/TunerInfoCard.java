@@ -130,10 +130,8 @@ implements TreeSelectionListener {
             System.out.println("[tuner status] " + s);
 
         Color barColor;
-        if (quality > 95) 
+        if (quality >= 98) 
             barColor = green;
-        else if (quality > 90)
-            barColor = yellow;
         else
             barColor = red;
         Main.netBar.setForeground(barColor);
