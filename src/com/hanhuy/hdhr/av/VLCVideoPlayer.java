@@ -101,7 +101,7 @@ public class VLCVideoPlayer implements VideoPlayer {
             us = new UDPStream();
             proxy.addPacketListener(us);
             int port = us.getRemotePort();
-            play("udp://@localhost:" + port);
+            play("udp://@:" + port);
         }
         catch (IOException e) {
             throw new RuntimeException(e);
