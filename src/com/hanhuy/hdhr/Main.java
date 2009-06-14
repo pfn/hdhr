@@ -287,6 +287,7 @@ public class Main extends ResourceBundleForm implements Runnable {
         TreePopupListener l = new TreePopupListener();
         tree = new JTree(model);
         tree.setExpandsSelectedPaths(true);
+        tree.setDragEnabled(true);
         tree.getSelectionModel().setSelectionMode(
                 TreeSelectionModel.SINGLE_TREE_SELECTION);
         tree.addMouseListener(l);

@@ -37,6 +37,7 @@ public class HTTPExternalVideoPlayer implements VideoPlayer {
             hs = new HTTPStream();
             proxy.addPacketListener(hs);
             final int port = hs.getLocalPort();
+            System.out.println("Streaming at http://localhost:" + port);
             EventQueue.invokeLater(new Runnable() {
                 public void run() {
                     JOptionPane.showMessageDialog(Main.frame,

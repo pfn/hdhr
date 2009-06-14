@@ -38,6 +38,7 @@ public class UDPExternalVideoPlayer implements VideoPlayer {
             us = new UDPStream();
             proxy.addPacketListener(us);
             final int port = us.getRemotePort();
+            System.out.println("Streaming to udp://@localhost:" + port);
             EventQueue.invokeLater(new Runnable() {
                 public void run() {
                     JOptionPane.showMessageDialog(Main.frame,
