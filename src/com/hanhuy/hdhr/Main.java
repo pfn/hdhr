@@ -86,7 +86,7 @@ public class Main extends ResourceBundleForm implements Runnable {
     public static CardLayout cards;
     public static JPanel cardPane;
 
-    private JTree tree;
+    static JTree tree;
 
     static DeviceTreeModel model = new DeviceTreeModel();
 
@@ -902,16 +902,24 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
     public void mouseExited(MouseEvent e) { }
     private void maybeShowPopup(MouseEvent e) {
         if (e.isPopupTrigger()) {
-            JPopupMenu popup = null;
 
-            if (value == DeviceTreeModel.ROOT_NODE)
-                popup = rootMenu;
-            if (value instanceof Tuner)
-                popup = tunerMenu;
-            if (value instanceof Program)
-                popup = programMenu;
-            if (popup != null)
-                popup.show(e.getComponent(), e.getX(), e.getY());
+            TreePath p = Main.tree.getPathForLocation(
+                    e.getPoint().x, e.getPoint().y);
+            Main.tree.setSelectionPath(p);
+            if (p != null && p.getPathCount() > 0) {
+                JPopupMenu popup = null;
+
+                Object value = p.getLastPathComponent();
+
+                if (value == DeviceTreeModel.ROOT_NODE)
+                    popup = rootMenu;
+                if (value instanceof Tuner)
+                    popup = tunerMenu;
+                if (value instanceof Program)
+                    popup = programMenu;
+                if (popup != null)
+                    popup.show(e.getComponent(), e.getX(), e.getY());
+            }
         }
     }
 }

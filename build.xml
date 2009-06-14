@@ -83,27 +83,12 @@
   </target>
   <target name="jar" depends="compile,versionproperties">
     <mkdir dir="${dist.dir}/hdhr"/>
-    <jar jarfile="${dist.dir}/hdhr/hdhr-resources.jar">
+    <jar jarfile="${build.dir}/hdhr-resources.jar">
       <fileset dir="${src.dir}">
         <include name="com/hanhuy/**/*.png"/>
         <include name="com/hanhuy/**/*.properties"/>
       </fileset>
     </jar>
-
-    <signjar jar="${dist.dir}/hdhr/hdhr-resources.jar"
-           alias="${key.alias}" keystore="${key.store}"
-       storepass="${key.store.pass}" storetype="${key.store.type}"/>
-    <!--
-    <signjar jar="${dist.dir}/hdhr/vlc-win32-1.0.0rc3.jar"
-           alias="${key.alias}" keystore="${key.store}"
-       storepass="${key.store.pass}" storetype="${key.store.type}"/>
-    <signjar jar="${dist.dir}/hdhr/vlc-osx-1.0.0rc3.jar"
-           alias="${key.alias}" keystore="${key.store}"
-       storepass="${key.store.pass}" storetype="${key.store.type}"/>
-    <signjar jar="${dist.dir}/hdhr/mplayer.jar"
-           alias="${key.alias}" keystore="${key.store}"
-       storepass="${key.store.pass}" storetype="${key.store.type}"/>
-    -->
 
     <jar jarfile="${build.dir}/hdhr.jar">
       <manifest>
@@ -117,16 +102,33 @@
       </fileset>
     </jar>
     <antcall target="signjar">
+      <param name="src" value="${build.dir}/hdhr-resources.jar"/>
+    </antcall>
+    <antcall target="signjar">
+      <param name="src" value="/home/pfnguyen/vlc-win32-1.0.0rc3.jar"/>
+    </antcall>
+    <antcall target="signjar">
+      <param name="src" value="/home/pfnguyen/vlc-osx-1.0.0rc3.jar"/>
+    </antcall>
+    <antcall target="signjar">
+      <param name="src" value="/home/pfnguyen/mplayer.jar"/>
+    </antcall>
+
+    <antcall target="signjar">
       <param name="src" value="${build.dir}/hdhr.jar"/>
+      <param name="packgz" value="true"/>
     </antcall>
     <antcall target="signjar">
       <param name="src" value="${common.ui.dist.dir}/hanhuy-common-ui.jar"/>
+      <param name="packgz" value="true"/>
     </antcall>
     <antcall target="signjar">
       <param name="src" value="${lib.dir}/jna-3.1.0.jar"/>
+      <param name="packgz" value="true"/>
     </antcall>
     <antcall target="signjar">
       <param name="src" value="${lib.dir}/jvlc-core-1.0.0-SNAPSHOT.jar"/>
+      <param name="packgz" value="true"/>
     </antcall>
   </target>
 
@@ -136,22 +138,32 @@
   </target>
   <target name="signjar" depends="dependsignjar" unless="signjar.uptodate">
     <mkdir dir="${build.dir}/pack200"/>
+    <antcall target="repack200"/>
+    <signjar jar="${dist.dir}/hdhr/${src.jar}"
+           alias="${key.alias}" keystore="${key.store}"
+       storepass="${key.store.pass}" storetype="${key.store.type}"/>
+    <antcall target="pack200"/>
+  </target>
+  <target name="repack200" if="packgz">
     <pack200 src="${src}" destfile="${build.dir}/pack200/${src.jar}"
           repack="true"/>
     <move file="${build.dir}/pack200/${src.jar}"
         tofile="${dist.dir}/hdhr/${src.jar}"/>
-    <signjar jar="${dist.dir}/hdhr/${src.jar}"
-           alias="${key.alias}" keystore="${key.store}"
-       storepass="${key.store.pass}" storetype="${key.store.type}"/>
+  </target>
+  <target name="pack200" if="packgz">
     <pack200 src="${dist.dir}/hdhr/${src.jar}"
         destfile="${dist.dir}/hdhr/${src.jar}.pack.gz" gzipoutput="true"/>
   </target>
   <target name="dependsignjar">
     <basename property="src.jar" file="${src}"/>
     <dirname  property="src.dir" file="${src}"/>
+    <property name="packgz.ext" value=""/>
+    <condition property="packgz.ext" value=".pack.gz">
+      <isset property="packgz"/>
+    </condition>
     <uptodate property="signjar.uptodate" srcfile="${src}"
-            targetfile="${dist.dir}/hdhr/${src.jar}.pack.gz"/>
-    <echo message="${src} ~ ${dist.dir}/hdhr/${src.jar}.pack.gz"/>
+            targetfile="${dist.dir}/hdhr/${src.jar}${packgz.ext}"/>
+    <echo message="${src} ~ ${dist.dir}/hdhr/${src.jar}${packgz.ext}"/>
   </target>
 
   <target name="test" depends="compile,compiletest">
