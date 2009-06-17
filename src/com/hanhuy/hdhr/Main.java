@@ -97,6 +97,8 @@ public class Main extends ResourceBundleForm implements Runnable {
     static JProgressBar netBar, ssBar, seqBar, snqBar;
 
     public static void main(String[] args) throws Exception {
+        // prevent performance impact of javaws security manager
+        System.setSecurityManager(new PermissiveSecurityManager());
         if (System.getProperty("com.hanhuy.hdhr.console") != null)
             setConsole();
         UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
