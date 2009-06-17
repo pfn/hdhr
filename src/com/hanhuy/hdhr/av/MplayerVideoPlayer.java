@@ -146,8 +146,12 @@ public class MplayerVideoPlayer implements VideoPlayer {
             if (in != null) {
                 FileChannel fc = null;
                 try {
-                    File mplayer = File.createTempFile("mplayer", ".exe");
+                    File mplayer = new File(
+                            System.getProperty("java.io.tmpdir"),
+                            "mplayer-hdhrb.exe");
 
+                    if (mplayer.exists())
+                        mplayer.delete();
                     FileOutputStream fout = new FileOutputStream(mplayer);
                     ReadableByteChannel rc = Channels.newChannel(in);
                     fc = fout.getChannel();

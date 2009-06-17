@@ -119,10 +119,11 @@ public class ChannelMap implements Serializable {
         private String modulation;
         public final short  number;
         public final int    frequency;
+        public long scanTime;
 
         // program association table crc
         private int patCRC;
-        private int tsID;
+        private int tsID = -1;
         private List<Program> programs;
 
         public boolean equals(Object other) {

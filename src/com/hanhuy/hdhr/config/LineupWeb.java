@@ -40,7 +40,7 @@ import org.w3c.dom.Element;
 import org.xml.sax.SAXException;
 import org.xml.sax.InputSource;
 
-public class Lineup {
+public class LineupWeb {
 
     private String location;
     private Document document;
@@ -67,7 +67,7 @@ public class Lineup {
     private final XPathExpression DBID_XPATH;
     private final XPathExpression NAME_XPATH;
 
-    public Lineup(String location) {
+    public LineupWeb(String location) {
         this.location = location;
         XPathFactory factory = XPathFactory.newInstance();
         resolver = new VariableResolver();
@@ -215,7 +215,7 @@ public class Lineup {
         Map<Tuner,List<Program>> programMap = (Map) ois.readObject();
         ois.close();
 
-        Lineup l = new Lineup("US:95051");
+        LineupWeb l = new LineupWeb("US:95051");
         long start = System.currentTimeMillis();
         String id = l.getDatabaseIDs()[1];
         System.out.println("get ms: " + (System.currentTimeMillis() - start));

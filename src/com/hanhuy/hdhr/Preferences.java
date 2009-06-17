@@ -22,6 +22,7 @@ public class Preferences implements Serializable {
     public int fontDelta;
     public boolean programDebug;
     public String videoBackend;
+    public String userUUID;
 
     public synchronized static Preferences getInstance() {
         if (INSTANCE == null)

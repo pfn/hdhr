@@ -163,9 +163,9 @@ public class Control {
      * Packet.DEVICE_ID_WILDCARD then connect to the first device returned.
      */
     public int connect(int deviceId) throws TunerException {
-        connectedId = deviceId;
         if (c != null)
             return connectedId;
+        connectedId = deviceId;
         try {
             Map<Integer, InetAddress[]> devices = Discover.discover(deviceId);
             InetAddress[] endpoints;

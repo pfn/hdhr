@@ -5,11 +5,13 @@ import com.hanhuy.common.ui.ResourceBundleForm;
 import com.hanhuy.common.ui.Util;
 import com.hanhuy.common.ui.DimensionEditor;
 import com.hanhuy.common.ui.FontEditor;
-import com.hanhuy.hdhr.config.Lineup;
+import com.hanhuy.hdhr.config.LineupWeb;
+import com.hanhuy.hdhr.config.LineupServer;
 import com.hanhuy.hdhr.config.Control;
 import com.hanhuy.hdhr.config.ChannelScan;
 import com.hanhuy.hdhr.config.ChannelMap.Channel.Program;
 import com.hanhuy.hdhr.config.TunerException;
+import com.hanhuy.hdhr.config.TunerLineupException;
 import com.hanhuy.hdhr.treemodel.DeviceTreeModel;
 import com.hanhuy.hdhr.treemodel.DeviceTreeCellRenderer;
 import com.hanhuy.hdhr.treemodel.Tuner;
@@ -43,6 +45,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Properties;
+import java.util.UUID;
+import java.util.Arrays;
 
 import javax.swing.JList;
 import javax.swing.JCheckBoxMenuItem;
@@ -102,7 +106,10 @@ public class Main extends ResourceBundleForm implements Runnable {
         PropertyEditorManager.registerEditor(Font.class,
                 FontEditor.class);
 
-        Preferences.getInstance();
+        Preferences p = Preferences.getInstance();
+        if (p.userUUID == null) {
+            p.userUUID = UUID.randomUUID().toString();
+        }
         EventQueue.invokeLater(new Main());
     }
 
@@ -508,7 +515,7 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
     private JPopupMenu rootMenu;
     private Object value;
     private TreePath path;
-    private Lineup l;
+    private LineupWeb l;
 
     TreePopupListener() {
         tunerMenu = new JPopupMenu();
@@ -724,7 +731,7 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
                             Main.frame, "No programs to match, scan first");
                     return;
                 }
-                int deviceId = t.device.id;
+                final int deviceId = t.device.id;
                 Control c = new Control();
                 String location;
                 try {
@@ -738,18 +745,34 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
                 finally {
                     c.close();
                 }
-                String[] databases;
-                if (l == null) {
-                    l = new Lineup(location);
-                    final String[][] p = new String[1][];
+
+
+                boolean hasTSID = false;
+                for (Program program : programs)
+                    hasTSID |= program.channel.getTsID() != 0;
+
+                if (hasTSID) {
                     ProgressDialog d = new ProgressDialog(
-                            Main.frame, "Fetching lineup");
+                            Main.frame, "Matching lineup with SiliconDust");
+                    final String loc = location;
                     d.showProgress(new Runnable() {
                         public void run() {
                             try {
-                                p[0] = l.getDatabaseIDs();
+                                LineupServer ls = new LineupServer(
+                                        loc, deviceId,
+                                        Preferences.getInstance().userUUID);
+                                final int count = ls.identifyPrograms(programs);
+                                EventQueue.invokeLater(new Runnable() {
+                                    public void run() {
+                                        JOptionPane.showMessageDialog(
+                                                Main.frame,
+                                                "Identified " +
+                                                        count + " programs");
+
+                                    }
+                                });
                             }
-                            catch (final IOException e) {
+                            catch (final TunerException e) {
                                 EventQueue.invokeLater(new Runnable() {
                                     public void run() {
                                         JOptionPane.showMessageDialog(
@@ -759,60 +782,84 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
                             }
                         }
                     });
-                    databases = p[0];
                 } else {
-                    try {
-                        databases = l.getDatabaseIDs();
-                    }
-                    catch (IOException e) {
-                        JOptionPane.showMessageDialog(
-                                Main.frame, e.getMessage());
-                        return;
-                    }
-                }
-                JRadioButton[] buttons = new JRadioButton[databases.length];
-                ButtonGroup g = new ButtonGroup();
-                for (int i = 0; i < databases.length; i++) {
-                    String label = l.getProgramCount(databases[i]) +
-                            " programs: " + l.getDisplayName(databases[i]);
-                    JRadioButton b = new JRadioButton(label);
-                    g.add(b);
-                    buttons[i] = b;
-                }
-                JOptionPane.showMessageDialog(Main.frame, buttons,
-                        "Select a lineup to apply",
-                        JOptionPane.QUESTION_MESSAGE);
-                int selectedDB = -1;
-                for (int i = 0; i < buttons.length && selectedDB == -1; i++) {
-                    if (buttons[i].isSelected()) {
-                        selectedDB = i;
-                        break;
-                    }
-                }
-                if (selectedDB != -1) {
-                    final String selectedID = databases[selectedDB];
-                    ProgressDialog d = new ProgressDialog(
-                            Main.frame, "Matching lineup");
-                    final int[] count = new int[1];
-                    d.showProgress(new Runnable() {
-                        public void run() {
-                            count[0] = 0;
-                            for (Program program : programs) {
-                                if (l.applyProgramSettings(
-                                        selectedID, program)) {
-                                    count[0]++;
-                                } else {
-                                    program.setName("UNKNOWN");
-                                    program.virtualMajor = 0;
-                                    program.virtualMinor = 0;
+                    String[] databases;
+                    if (l == null) {
+                        l = new LineupWeb(location);
+                        final String[][] p = new String[1][];
+                        ProgressDialog d = new ProgressDialog(
+                                Main.frame, "Fetching lineup");
+                        d.showProgress(new Runnable() {
+                            public void run() {
+                                try {
+                                    p[0] = l.getDatabaseIDs();
+                                }
+                                catch (final IOException e) {
+                                    EventQueue.invokeLater(new Runnable() {
+                                        public void run() {
+                                            JOptionPane.showMessageDialog(
+                                                    Main.frame, e.getMessage());
+                                        }
+                                    });
                                 }
                             }
+                        });
+                        databases = p[0];
+                    } else {
+                        try {
+                            databases = l.getDatabaseIDs();
                         }
-                    });
-                    JOptionPane.showMessageDialog(Main.frame,
-                            "Matched " + count[0] + " programs");
-                    Main.model.fireTreeStructureChanged(new Object[] {
-                            DeviceTreeModel.ROOT_NODE, t.device, t });
+                        catch (IOException e) {
+                            JOptionPane.showMessageDialog(
+                                    Main.frame, e.getMessage());
+                            return;
+                        }
+                    }
+                    JRadioButton[] buttons = new JRadioButton[databases.length];
+                    ButtonGroup g = new ButtonGroup();
+                    for (int i = 0; i < databases.length; i++) {
+                        String label = l.getProgramCount(databases[i]) +
+                                " programs: " + l.getDisplayName(databases[i]);
+                        JRadioButton b = new JRadioButton(label);
+                        g.add(b);
+                        buttons[i] = b;
+                    }
+                    JOptionPane.showMessageDialog(Main.frame, buttons,
+                            "Select a lineup to apply",
+                            JOptionPane.QUESTION_MESSAGE);
+                    int selectedDB = -1;
+                    for (int i = 0;
+                            i < buttons.length && selectedDB == -1; i++) {
+                        if (buttons[i].isSelected()) {
+                            selectedDB = i;
+                            break;
+                        }
+                    }
+                    if (selectedDB != -1) {
+                        final String selectedID = databases[selectedDB];
+                        ProgressDialog d = new ProgressDialog(
+                                Main.frame, "Matching lineup");
+                        final int[] count = new int[1];
+                        d.showProgress(new Runnable() {
+                            public void run() {
+                                count[0] = 0;
+                                for (Program program : programs) {
+                                    if (l.applyProgramSettings(
+                                            selectedID, program)) {
+                                        count[0]++;
+                                    } else {
+                                        program.setName("UNKNOWN");
+                                        program.virtualMajor = 0;
+                                        program.virtualMinor = 0;
+                                    }
+                                }
+                            }
+                        });
+                        JOptionPane.showMessageDialog(Main.frame,
+                                "Matched " + count[0] + " programs");
+                        Main.model.fireTreeStructureChanged(new Object[] {
+                                DeviceTreeModel.ROOT_NODE, t.device, t });
+                    }
                 }
             }
         }));
@@ -828,6 +875,8 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
         programMenu = new JPopupMenu();
         programMenu.add(new RunnableAction("Edit...", new Runnable() {
             public void run() {
+                Tuner t = (Tuner) path.getParentPath().getLastPathComponent();
+                int deviceId = t.device.id;
                 Program p = (Program) value;
 
                 Object[] message = new Object[2];
@@ -877,6 +926,29 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
                     p.virtualMajor = Short.parseShort(number.substring(0, idx));
                     p.virtualMinor =
                             Short.parseShort(number.substring(idx + 1));
+                }
+
+                List<Program> programs = Main.model.programMap.get(t);
+                boolean hasTSID = false;
+                for (Program program : programs)
+                    hasTSID |= program.channel.getTsID() != 0;
+
+                if (hasTSID) {
+                    Control d = new Control();
+                    try {
+                        d.connect(deviceId);
+                        LineupServer ls = new LineupServer(
+                                d.get("/lineup/location"), deviceId,
+                                Preferences.getInstance().userUUID);
+                        ls.updatePrograms(Arrays.asList(p));
+                    }
+                    catch (TunerException e) {
+                        JOptionPane.showMessageDialog(Main.frame,
+                                e.getMessage());
+                    }
+                    finally {
+                        d.close();
+                    }
                 }
 
                 Main.model.fireTreeNodesChanged(path);
@@ -943,6 +1015,8 @@ class ScanningRunnable implements ProgressAwareRunnable {
             bar.setString("Locking tuner: " + t.tuner);
             device.lock(t.tuner);
             bar.setString("Scanning");
+            final boolean[] hasTSID = new boolean[1];
+            hasTSID[0] = false;
             final List<Program> programs = new ArrayList<Program>();
             ChannelScan.scan(device, new ChannelScan.ScanListener() {
                 int progress = 0;
@@ -985,6 +1059,7 @@ class ScanningRunnable implements ProgressAwareRunnable {
                             ":END STREAMINFO");
                     for (Program p : e.channel.getPrograms())
                         System.out.println(p);
+                    hasTSID[0] |= e.channel.getTsID() != -1;
                 }
                 public void programsNotFound(ChannelScan.ScanEvent e) {
                     if (cancelled) e.cancelScan();
@@ -1009,6 +1084,25 @@ class ScanningRunnable implements ProgressAwareRunnable {
             }
             System.out.println("Found " + programs.size() + " programs");
             Main.model.programMap.put(t, programs);
+            try {
+                if (hasTSID[0]) {
+                    bar.setIndeterminate(true);
+                    bar.setString("Matching lineup with SiliconDust");
+                    LineupServer ls = new LineupServer(
+                            device.get("/lineup/location"), t.device.id,
+                            Preferences.getInstance().userUUID);
+                    ls.identifyPrograms(programs);
+                }
+            }
+            catch (final TunerLineupException e) {
+                e.printStackTrace();
+                EventQueue.invokeLater(new Runnable() {
+                    public void run() {
+                        JOptionPane.showMessageDialog(
+                                Main.frame, e.getMessage());
+                    }
+                });
+            }
             EventQueue.invokeLater(new Runnable() {
                 public void run() {
                     Main.model.fireTreeStructureChanged(new Object[] {
@@ -1023,6 +1117,7 @@ class ScanningRunnable implements ProgressAwareRunnable {
                             Main.frame, e.getMessage());
                 }
             });
+            e.printStackTrace();
         }
         finally {
             device.close();

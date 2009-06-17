@@ -32,6 +32,7 @@ public class ChannelScan {
         for (ChannelMap.Channel c : channels) {
             index++;
 
+            c.scanTime = System.currentTimeMillis();
             ScanEvent e = new ScanEvent(c, map, index);
             l.scanningChannel(new ScanEvent(c, map, index));
             if (e.cancelled)
