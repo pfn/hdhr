@@ -93,6 +93,15 @@ public class ChannelMap implements Serializable {
             new ChannelRange(9, 100, 138000000, 8000000)
         ));
         channelmaps.put(map.name, map);
+
+        map = new ChannelMap("au-bcast");
+        map.ranges.addAll(Arrays.asList(
+            new ChannelRange( 2,   2,  48500000, 7000000),
+            new ChannelRange( 3,   4,  59500000, 7000000),
+            new ChannelRange( 5,  12, 177500000, 7000000),
+            new ChannelRange(28,  69, 529500000, 7000000)
+        ));
+        channelmaps.put(map.name, map);
     }
 
     private static class ChannelRange implements Serializable {

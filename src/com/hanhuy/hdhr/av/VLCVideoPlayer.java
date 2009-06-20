@@ -122,7 +122,6 @@ public class VLCVideoPlayer implements VideoPlayer {
                 "-vvv",
                 //"--ignore-config",
                 "-I",            "dummy",
-                //"--codec",       "avcodec", // avoid horrible libmpeg2 crashes
                 "--no-overlay",
                 "--no-video-title-show",
                 "--no-osd",
@@ -149,6 +148,9 @@ public class VLCVideoPlayer implements VideoPlayer {
             vlc_args.add("4");
         } else if (LIBVLC_VERSION.startsWith("1.")) {
             // disable keyboard and mouse event handling
+            vlc_args.add("--codec"); // avoid libmpeg2 crashes
+            vlc_args.add("avcodec"); // prior to 1.0.0rc5 avcodec has buffer
+                                     // alignment problems
             vlc_args.add("--vout-event");
             vlc_args.add("3");
 

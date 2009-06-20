@@ -82,7 +82,7 @@
     </propertyfile>
   </target>
   <target name="jar" depends="compile,versionproperties">
-    <mkdir dir="${dist.dir}/hdhr"/>
+    <mkdir dir="${dist.dir}"/>
     <jar jarfile="${build.dir}/hdhr-resources.jar">
       <fileset dir="${src.dir}">
         <include name="com/hanhuy/**/*.png"/>
@@ -105,7 +105,7 @@
       <param name="src" value="${build.dir}/hdhr-resources.jar"/>
     </antcall>
     <antcall target="signjar">
-      <param name="src" value="/home/pfnguyen/vlc-win32-1.0.0rc3.jar"/>
+      <param name="src" value="/home/pfnguyen/vlc-win32-1.0.0rc4.jar"/>
     </antcall>
     <antcall target="signjar">
       <param name="src" value="/home/pfnguyen/vlc-osx-1.0.0rc3.jar"/>
@@ -139,7 +139,7 @@
   <target name="signjar" depends="dependsignjar" unless="signjar.uptodate">
     <mkdir dir="${build.dir}/pack200"/>
     <antcall target="repack200"/>
-    <signjar jar="${dist.dir}/hdhr/${src.jar}"
+    <signjar jar="${dist.dir}/${src.jar}"
            alias="${key.alias}" keystore="${key.store}"
        storepass="${key.store.pass}" storetype="${key.store.type}"/>
     <antcall target="pack200"/>
@@ -148,11 +148,14 @@
     <pack200 src="${src}" destfile="${build.dir}/pack200/${src.jar}"
           repack="true"/>
     <move file="${build.dir}/pack200/${src.jar}"
-        tofile="${dist.dir}/hdhr/${src.jar}"/>
+        tofile="${dist.dir}/${src.jar}"/>
   </target>
   <target name="pack200" if="packgz">
-    <pack200 src="${dist.dir}/hdhr/${src.jar}"
-        destfile="${dist.dir}/hdhr/${src.jar}.pack.gz" gzipoutput="true"/>
+    <pack200 src="${dist.dir}/${src.jar}"
+        destfile="${dist.dir}/${src.jar}.pack.gz" gzipoutput="true"/>
+  </target>
+  <target name="copyjar" unless="file.there">
+    <copy file="${src}" todir="${dist.dir}"/>
   </target>
   <target name="dependsignjar">
     <basename property="src.jar" file="${src}"/>
@@ -161,9 +164,14 @@
     <condition property="packgz.ext" value=".pack.gz">
       <isset property="packgz"/>
     </condition>
+    <property name="target.file"
+             value="${dist.dir}/${src.jar}${packgz.ext}"/>
     <uptodate property="signjar.uptodate" srcfile="${src}"
-            targetfile="${dist.dir}/hdhr/${src.jar}${packgz.ext}"/>
-    <echo message="${src} ~ ${dist.dir}/hdhr/${src.jar}${packgz.ext}"/>
+            targetfile="${target.file}"/>
+    <available property="file.there"
+                   file="${target.file}"/>
+    <antcall target="copyjar"/>
+    <echo message="${src} ~ ${target.file}"/>
   </target>
 
   <target name="test" depends="compile,compiletest">
