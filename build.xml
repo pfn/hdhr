@@ -154,7 +154,7 @@
     <pack200 src="${dist.dir}/${src.jar}"
         destfile="${dist.dir}/${src.jar}.pack.gz" gzipoutput="true"/>
   </target>
-  <target name="copyjar" unless="file.there">
+  <target name="copyjar" if="need.copy">
     <copy file="${src}" todir="${dist.dir}"/>
   </target>
   <target name="dependsignjar">
@@ -168,10 +168,21 @@
              value="${dist.dir}/${src.jar}${packgz.ext}"/>
     <uptodate property="signjar.uptodate" srcfile="${src}"
             targetfile="${target.file}"/>
-    <available property="file.there"
-                   file="${target.file}"/>
+    <condition property="need.copy">
+      <or>
+        <not>
+          <available file="${target.file}"/>
+        </not>
+        <and>
+          <isfalse value="${signjar.uptodate}"/>
+          <not>
+            <isset property="packgz"/>
+          </not>
+        </and>
+      </or>
+    </condition>
     <antcall target="copyjar"/>
-    <echo message="${src} ~ ${target.file}"/>
+    <echo message="${src} ~ ${target.file} ${need.copy}"/>
   </target>
 
   <target name="test" depends="compile,compiletest">

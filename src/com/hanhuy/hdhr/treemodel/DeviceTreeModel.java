@@ -132,6 +132,9 @@ public class DeviceTreeModel implements TreeModel {
         listeners.remove(l);
     }
 
+    public TreePath getTunerPath(Tuner t) {
+        return new TreePath(new Object[] { ROOT_NODE, t.device, t });
+    }
     public void fireTreeNodesChanged(TreePath nodePath) {
         Object item = nodePath.getLastPathComponent();
         Object parent = nodePath.getParentPath().getLastPathComponent();

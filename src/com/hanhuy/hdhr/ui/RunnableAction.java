@@ -9,7 +9,7 @@ import javax.swing.KeyStroke;
 
 public class RunnableAction extends AbstractAction implements Action {
 
-    private Runnable r;
+    protected Runnable r;
     public RunnableAction(String name, Runnable action) {
         this(name, null, null, -1, null, null, action);
     }

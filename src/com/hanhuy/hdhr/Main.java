@@ -21,6 +21,7 @@ import com.hanhuy.hdhr.ui.ProgressAwareRunnable;
 import com.hanhuy.hdhr.ui.ProgressBar;
 import com.hanhuy.hdhr.ui.ProgressDialog;
 import com.hanhuy.hdhr.ui.RunnableAction;
+import com.hanhuy.hdhr.Actions.Name;
 
 import java.beans.PropertyEditorManager;
 import java.io.IOException;
@@ -119,6 +120,10 @@ public class Main extends ResourceBundleForm implements Runnable {
         EventQueue.invokeLater(new Main());
     }
 
+    Main() {
+        Actions.init(this);
+    }
+
     private static void setConsole() {
         System.setOut(ConsoleViewer.OUT);
         System.setErr(ConsoleViewer.OUT);
@@ -150,63 +155,54 @@ public class Main extends ResourceBundleForm implements Runnable {
 
         menu = new JMenu(getString("fileMenuTitle"));
         menu.setMnemonic(getChar("fileMenuMnemonic"));
-        menu.add(new RunnableAction("Show Console", KeyEvent.VK_C, "control C",
-                new Runnable() {
-            public void run() {
-                new ConsoleViewer(Main.frame);
-            }
-        }) {
-            {
-                setEnabled(
-                        System.getProperty("com.hanhuy.hdhr.console") != null);
-            }
-        });
-        menu.add(new RunnableAction("Exit", KeyEvent.VK_X, "control X",
-                new Runnable() {
-            public void run() {
-                exit();
-            }
-        }));
+        menu.add(Actions.getAction(Name.DISCOVER));
+        menu.add(Actions.getAction(Name.EXIT));
         menubar.add(menu);
 
         menu = new JMenu(getString("viewMenuTitle"));
         menu.setMnemonic(getChar("viewMenuMnemonic"));
 
-        menu.add(new RunnableAction("Increase font size", KeyEvent.VK_I,
-                "control I", new Runnable() {
-            public void run() {
-                changeFontSize(true);
-            }
-        }));
-        menu.add(new RunnableAction("Reset font size", KeyEvent.VK_E,
-                "control E", new Runnable() {
-            public void run() {
-                resetFontSize();
-            }
-        }));
-        menu.add(new RunnableAction("Decrease font size", KeyEvent.VK_D,
-                "control D", new Runnable() {
-            public void run() {
-                changeFontSize(false);
-            }
-        }));
+        menu.add(Actions.getAction(Name.INCREASE_FONT_SIZE));
+        menu.add(Actions.getAction(Name.RESET_FONT_SIZE));
+        menu.add(Actions.getAction(Name.DECREASE_FONT_SIZE));
         menu.addSeparator();
-        menu.add(new RunnableAction("Jump to last program", KeyEvent.VK_J,
-                "control J", new Runnable() {
+        menu.add(Actions.getAction(Name.SHOW_CONSOLE));
+        final JCheckBoxMenuItem debugItem = new JCheckBoxMenuItem();
+        boolean pDebug = Preferences.getInstance().programDebug;
+        if (pDebug) {
+            debugItem.setState(pDebug);
+            ProgramCard.INSTANCE.setDebug(pDebug);
+        }
+        RunnableAction debugAction = new RunnableAction(
+                "Debug", new Runnable() {
             public void run() {
-                TreePath last = Preferences.getInstance().lastViewedPath;
-                if (last == null) {
-                    JOptionPane.showMessageDialog(Main.frame,
-                            "You have not yet viewed any programs");
-                    return;
-                }
-                tree.expandPath(last.getParentPath());
-                tree.scrollPathToVisible(last);
-                tree.setSelectionPath(last);
+                boolean debug = debugItem.isSelected();
+                Preferences.getInstance().programDebug = debug;
+                ProgramCard.INSTANCE.setDebug(debug);
             }
-        }));
+        });
+        debugItem.setAction(debugAction);
+        menu.add(debugItem);
 
         menubar.add(menu);
+
+        menu = new JMenu(getString("tunerMenuTitle"));
+        menu.setMnemonic(getChar("tunerMenuMnemonic"));
+        menu.add(Actions.getAction(Name.SCAN));
+        menu.add(Actions.getAction(Name.UNLOCK_TUNER));
+        menu.add(Actions.getAction(Name.UNSET_TARGET));
+        menu.add(Actions.getAction(Name.UNSET_CHANNEL));
+        menu.add(Actions.getAction(Name.COPY_SCAN));
+        menu.add(Actions.getAction(Name.MATCH_LINEUP));
+        menubar.add(menu);
+
+        menu = new JMenu(getString("programMenuTitle"));
+        menu.setMnemonic(getChar("programMenuMnemonic"));
+        menu.add(Actions.getAction(Name.EDIT_PROGRAM));
+        menu.add(Actions.getAction(Name.JUMP_TO_LAST_PROGRAM));
+
+        menubar.add(menu);
+
         menu = new JMenu(getString("backendsMenuTitle"));
         menu.setMnemonic(getChar("backendsMenuMnemonic"));
 
@@ -230,61 +226,13 @@ public class Main extends ResourceBundleForm implements Runnable {
             item.addActionListener(l);
             menu.add(item);
         }
-        menu.addSeparator();
-        final JCheckBoxMenuItem debugItem = new JCheckBoxMenuItem();
-        boolean pDebug = Preferences.getInstance().programDebug;
-        if (pDebug) {
-            debugItem.setState(pDebug);
-            ProgramCard.INSTANCE.setDebug(pDebug);
-        }
-        RunnableAction debugAction = new RunnableAction(
-                "Debug", new Runnable() {
-            public void run() {
-                boolean debug = debugItem.isSelected();
-                Preferences.getInstance().programDebug = debug;
-                ProgramCard.INSTANCE.setDebug(debug);
-            }
-        });
-        debugItem.setAction(debugAction);
-        menu.add(debugItem);
 
         menubar.add(menu);
 
         menu = new JMenu(getString("helpMenuTitle"));
         menu.setMnemonic(getChar("helpMenuMnemonic"));
 
-        menu.add(new RunnableAction("About", KeyEvent.VK_A, new Runnable() {
-            public void run() {
-                java.io.InputStream in = getClass().getResourceAsStream(
-                        "version.properties");
-                if (in == null) {
-                    JOptionPane.showMessageDialog(
-                            Main.frame, "Unable to determine version");
-                    return;
-                }
-                try {
-                    Properties p = new Properties();
-                    p.load(in);
-
-                    String version = p.getProperty("revision");
-                    String timestamp = p.getProperty("time");
-                    String message = format("aboutString", version, timestamp);
-                    JOptionPane.showMessageDialog(Main.frame,
-                            message, "About", JOptionPane.PLAIN_MESSAGE);
-                }
-                catch (IOException e) {
-                    JOptionPane.showMessageDialog(
-                            Main.frame, "Unable to determine version");
-                }
-                finally {
-                    try {
-                        in.close();
-                    }
-                    catch (IOException e) { }
-                }
-            }
-        }));
-
+        menu.add(Actions.getAction(Name.ABOUT));
         menubar.add(menu);
     }
 
@@ -311,6 +259,7 @@ public class Main extends ResourceBundleForm implements Runnable {
                     cards.show(cardPane, "blank");
             }
         });
+        tree.addTreeSelectionListener(Actions.getInstance());
         tree.addTreeSelectionListener(l);
         tree.addTreeSelectionListener(TunerInfoCard.INSTANCE);
         tree.addTreeSelectionListener(DeviceInfoCard.INSTANCE);
@@ -476,12 +425,12 @@ public class Main extends ResourceBundleForm implements Runnable {
     }
 
     private Map<Object,Object> defaults = new HashMap<Object,Object>();
-    private void changeFontSize(boolean increase) {
+    void changeFontSize(boolean increase) {
         int increment = increase ? 1 : -1;
         Preferences.getInstance().fontDelta += increment;
         changeFontSize(increment);
     }
-    private void changeFontSize(int delta) {
+    void changeFontSize(int delta) {
         Enumeration<Object> keys = UIManager.getDefaults().keys();
         for (Object key : Collections.list(keys)) {
             Object value = UIManager.get(key);
@@ -497,7 +446,7 @@ public class Main extends ResourceBundleForm implements Runnable {
         if (Main.frame != null)
             SwingUtilities.updateComponentTreeUI(Main.frame);
     }
-    private void resetFontSize() {
+    void resetFontSize() {
         Preferences.getInstance().fontDelta = 0;
         for (Object key : defaults.keySet())
             UIManager.put(key, defaults.get(key));
@@ -520,456 +469,25 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
     private JPopupMenu programMenu;
     private JPopupMenu rootMenu;
     private Object value;
-    private TreePath path;
     private LineupWeb l;
 
     TreePopupListener() {
         tunerMenu = new JPopupMenu();
-        tunerMenu.add(new RunnableAction("Scan channels", new Runnable() {
-            public void run() {
-                Tuner t = (Tuner) value;
-                Control c = new Control();
-                try {
-                    c.connect(t.device.id);
-                    String cmd = String.format("/tuner%d/target",
-                            t.tuner.ordinal());
-                    String target = c.get(cmd);
-                    if (!"none".equals(target)) {
-                        int r = JOptionPane.showConfirmDialog(
-                                Main.frame, "<html><p>" +
-                                "Another application is currently using but " +
-                                "has not locked this tuner.  Continuing may " +
-                                "cause unexpected results or behavior.",
-                                "Tuner in use", JOptionPane.OK_CANCEL_OPTION);
-                        if (r != JOptionPane.OK_OPTION)
-                            return;
-                    }
-                }
-                catch (TunerException e) {
-                    JOptionPane.showMessageDialog(Main.frame,
-                            "Unable to verify tuner status");
-                    e.printStackTrace();
-                }
-                finally {
-                    c.close();
-                }
-                List<Program> p = Main.model.programMap.get(t);
-                if (p != null && p.size() > 0) {
-                    int r = JOptionPane.showConfirmDialog(
-                            Main.frame, "<html><p>" +
-                            "Performing a channel scan will delete the " +
-                            "previously configured channels, continue?",
-                            "Re-scan channels", JOptionPane.YES_NO_OPTION);
-                    if (r != JOptionPane.YES_OPTION)
-                        return;
-                }
-                ProgressDialog d = new ProgressDialog(
-                        Main.frame, "Scanning");
-                final ScanningRunnable r = new ScanningRunnable(t);
-                d.showProgress(r, new ProgressAwareRunnable() {
-                    ProgressBar b;
-                    public void setProgressBar(ProgressBar b) {
-                        this.b = b;
-                    }
-                    public void run() {
-                        b.setIndeterminate(true);
-                        b.setString("Cancelling scan...");
-                        r.cancelled = true;
-                    }
-                });
-                if (r.cancelled) return;
-                JOptionPane.showMessageDialog(Main.frame,
-                        "Found " + Main.model.programMap.get(t).size() +
-                        " programs");
-            }
-        }));
-        tunerMenu.add(new RunnableAction("Unlock tuner", new Runnable() {
-            public void run() {
-                Control c = new Control();
-                Tuner t = (Tuner) value;
-                try {
-                    c.connect(t.device.id);
-                    String lock = c.get(
-                            "/tuner" + t.tuner.ordinal() + "/lockkey");
-                    if ("none".equals(lock)) {
-                        JOptionPane.showMessageDialog(Main.frame,
-                            "This tuner is not locked");
-                        return;
-                    }
-                    int r = JOptionPane.showConfirmDialog(
-                            Main.frame, "<html><p>" +
-                            "Force unlock this tuner?  Doing so might " +
-                            " interrupt another program that may be using " +
-                            " this tuner.",
-                            "Unlock Tuner", JOptionPane.YES_NO_OPTION);
-                    if (r != JOptionPane.YES_OPTION)
-                        return;
-                    c.force(t.tuner);
-                }
-                catch (TunerException e) {
-                    JOptionPane.showMessageDialog(Main.frame, e.getMessage());
-                }
-                finally {
-                    c.close();
-                }
-            }
-        }));
-        tunerMenu.add(new RunnableAction("Unset target", new Runnable() {
-            public void run() {
-                Control c = new Control();
-                Tuner t = (Tuner) value;
-                try {
-                    c.connect(t.device.id);
-                    String target = String.format("/tuner%d/target",
-                            t.tuner.ordinal());
-                    String lock = c.get(target);
-                    if ("none".equals(lock)) {
-                        JOptionPane.showMessageDialog(Main.frame,
-                            "This tuner is not streaming");
-                        return;
-                    }
-                    int r = JOptionPane.showConfirmDialog(
-                            Main.frame, "<html><p>" +
-                            "Set the target for this tuner to none?  Doing " +
-                            "so <b>will interrupt</b> any other program " +
-                            "that is using this tuner.",
-                            "Unset target", JOptionPane.YES_NO_OPTION);
-                    if (r != JOptionPane.YES_OPTION)
-                        return;
-                    c.set(target, "none");
-                }
-                catch (TunerException e) {
-                    JOptionPane.showMessageDialog(Main.frame, e.getMessage());
-                }
-                finally {
-                    c.close();
-                }
-            }
-        }));
-        tunerMenu.add(new RunnableAction("Unset channel", new Runnable() {
-            public void run() {
-                Control c = new Control();
-                Tuner t = (Tuner) value;
-                try {
-                    c.connect(t.device.id);
-                    String channel = String.format("/tuner%d/channel",
-                            t.tuner.ordinal());
-                    String tune = c.get(channel);
-                    if ("none".equals(tune)) {
-                        JOptionPane.showMessageDialog(Main.frame,
-                            "There is no channel set");
-                        return;
-                    }
-                    int r = JOptionPane.showConfirmDialog(
-                            Main.frame, "<html><p>" +
-                            "Detune?  If any application is using this" +
-                            " tuner they will be interrupted.",
-                            "Detune", JOptionPane.YES_NO_OPTION);
-                    if (r != JOptionPane.YES_OPTION)
-                        return;
-                    c.set(channel, "none");
-                }
-                catch (TunerException e) {
-                    JOptionPane.showMessageDialog(Main.frame, e.getMessage());
-                }
-                finally {
-                    c.close();
-                }
-            }
-        }));
-        tunerMenu.add(new RunnableAction("Copy scan results...",
-                new Runnable() {
-            public void run() {
-                Tuner t = (Tuner) value;
-                int count = Main.model.getChildCount(DeviceTreeModel.ROOT_NODE);
-                ArrayList<Tuner> tuners = new ArrayList<Tuner>();
-                for (int i = 0; i < count; i++) {
-                    Device device = (Device) Main.model.getChild(
-                            DeviceTreeModel.ROOT_NODE, i);
-                    int dCount = Main.model.getChildCount(device);
-                    for (int j = 0; j < dCount; j++) {
-                        Tuner tuner = (Tuner) Main.model.getChild(device, j);
-                        if (t == tuner) continue;
-                        if (Main.model.getChildCount(tuner) > 0) {
-                            tuners.add(tuner);
-                        }
-                    }
-                }
-
-                if (tuners.size() < 1) {
-                    JOptionPane.showMessageDialog(Main.frame,
-                            "No scan results are available to copy");
-                    return;
-                }
-                JList list = new JList(tuners.toArray());
-                list.setSelectedIndex(0);
-                list.setLayoutOrientation(JList.VERTICAL);
-
-                JScrollPane pane = new JScrollPane(list,
-                        JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
-                        JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
-                Object[] message = new Object[2];
-                message[0] = "Select the tuner with the " +
-                        "scan results you wish to copy";
-                message[1] = pane;
-                int r = JOptionPane.showConfirmDialog(Main.frame, message,
-                        "Copy scan results", JOptionPane.OK_CANCEL_OPTION);
-                if (r != JOptionPane.OK_OPTION)
-                    return;
-                Tuner value = (Tuner) list.getSelectedValue();
-                if (value == null) {
-                    JOptionPane.showMessageDialog(Main.frame,
-                            "No results selected");
-                    return;
-                }
-                Main.model.programMap.put(t, Main.model.programMap.get(value));
-                Main.model.fireTreeStructureChanged(new Object[] {
-                        DeviceTreeModel.ROOT_NODE, t.device, t });
-            }
-        }));
-        tunerMenu.add(new RunnableAction("Match channel lineup...",
-                new Runnable() {
-            public void run() {
-                final Tuner t = (Tuner) value;
-                final List<Program> programs = Main.model.programMap.get(t);
-                if (programs == null || programs.size() == 0) {
-                    JOptionPane.showMessageDialog(
-                            Main.frame, "No programs to match, scan first");
-                    return;
-                }
-                final int deviceId = t.device.id;
-                Control c = new Control();
-                String location;
-                try {
-                    c.connect(deviceId);
-                    location = c.get("/lineup/location");
-                }
-                catch (TunerException e) {
-                    JOptionPane.showMessageDialog(Main.frame, e.getMessage());
-                    return;
-                }
-                finally {
-                    c.close();
-                }
-
-
-                boolean hasTSID = false;
-                for (Program program : programs)
-                    hasTSID |= program.channel.getTsID() != 0;
-
-                if (hasTSID) {
-                    ProgressDialog d = new ProgressDialog(
-                            Main.frame, "Matching lineup with SiliconDust");
-                    final String loc = location;
-                    d.showProgress(new Runnable() {
-                        public void run() {
-                            try {
-                                LineupServer ls = new LineupServer(
-                                        loc, deviceId,
-                                        Preferences.getInstance().userUUID);
-                                final int count = ls.identifyPrograms(programs);
-                                EventQueue.invokeLater(new Runnable() {
-                                    public void run() {
-                                        JOptionPane.showMessageDialog(
-                                                Main.frame,
-                                                "Identified " +
-                                                        count + " programs");
-
-                                    }
-                                });
-                            }
-                            catch (final TunerException e) {
-                                EventQueue.invokeLater(new Runnable() {
-                                    public void run() {
-                                        JOptionPane.showMessageDialog(
-                                                Main.frame, e.getMessage());
-                                    }
-                                });
-                            }
-                        }
-                    });
-                } else {
-                    String[] databases;
-                    if (l == null) {
-                        l = new LineupWeb(location);
-                        final String[][] p = new String[1][];
-                        ProgressDialog d = new ProgressDialog(
-                                Main.frame, "Fetching lineup");
-                        d.showProgress(new Runnable() {
-                            public void run() {
-                                try {
-                                    p[0] = l.getDatabaseIDs();
-                                }
-                                catch (final IOException e) {
-                                    EventQueue.invokeLater(new Runnable() {
-                                        public void run() {
-                                            JOptionPane.showMessageDialog(
-                                                    Main.frame, e.getMessage());
-                                        }
-                                    });
-                                }
-                            }
-                        });
-                        databases = p[0];
-                    } else {
-                        try {
-                            databases = l.getDatabaseIDs();
-                        }
-                        catch (IOException e) {
-                            JOptionPane.showMessageDialog(
-                                    Main.frame, e.getMessage());
-                            return;
-                        }
-                    }
-                    JRadioButton[] buttons = new JRadioButton[databases.length];
-                    ButtonGroup g = new ButtonGroup();
-                    for (int i = 0; i < databases.length; i++) {
-                        String label = l.getProgramCount(databases[i]) +
-                                " programs: " + l.getDisplayName(databases[i]);
-                        JRadioButton b = new JRadioButton(label);
-                        g.add(b);
-                        buttons[i] = b;
-                    }
-                    JOptionPane.showMessageDialog(Main.frame, buttons,
-                            "Select a lineup to apply",
-                            JOptionPane.QUESTION_MESSAGE);
-                    int selectedDB = -1;
-                    for (int i = 0;
-                            i < buttons.length && selectedDB == -1; i++) {
-                        if (buttons[i].isSelected()) {
-                            selectedDB = i;
-                            break;
-                        }
-                    }
-                    if (selectedDB != -1) {
-                        final String selectedID = databases[selectedDB];
-                        ProgressDialog d = new ProgressDialog(
-                                Main.frame, "Matching lineup");
-                        final int[] count = new int[1];
-                        d.showProgress(new Runnable() {
-                            public void run() {
-                                count[0] = 0;
-                                for (Program program : programs) {
-                                    if (l.applyProgramSettings(
-                                            selectedID, program)) {
-                                        count[0]++;
-                                    } else {
-                                        program.setName("UNKNOWN");
-                                        program.virtualMajor = 0;
-                                        program.virtualMinor = 0;
-                                    }
-                                }
-                            }
-                        });
-                        JOptionPane.showMessageDialog(Main.frame,
-                                "Matched " + count[0] + " programs");
-                        Main.model.fireTreeStructureChanged(new Object[] {
-                                DeviceTreeModel.ROOT_NODE, t.device, t });
-                    }
-                }
-            }
-        }));
+        tunerMenu.add(Actions.getAction(Name.SCAN));
+        tunerMenu.add(Actions.getAction(Name.UNLOCK_TUNER));
+        tunerMenu.add(Actions.getAction(Name.UNSET_TARGET));
+        tunerMenu.add(Actions.getAction(Name.UNSET_CHANNEL));
+        tunerMenu.add(Actions.getAction(Name.COPY_SCAN));
+        tunerMenu.add(Actions.getAction(Name.MATCH_LINEUP));
 
         rootMenu = new JPopupMenu();
-        rootMenu.add(new RunnableAction("Re-discover devices",
-                new Runnable() {
-            public void run() {
-                Main.model.rediscover();
-            }
-        }));
+        rootMenu.add(Actions.getAction(Name.DISCOVER));
 
         programMenu = new JPopupMenu();
-        programMenu.add(new RunnableAction("Edit...", new Runnable() {
-            public void run() {
-                Tuner t = (Tuner) path.getParentPath().getLastPathComponent();
-                int deviceId = t.device.id;
-                Program p = (Program) value;
-
-                Object[] message = new Object[2];
-
-                JTextField nameField = new JTextField(p.getName(), 32);
-                JPanel panel = new JPanel();
-                panel.add(new JLabel("Name"));
-                panel.add(nameField);
-                message[0] = panel;
-
-                JTextField numberField = new JTextField(p.getGuideNumber(), 8);
-                panel = new JPanel();
-                panel.add(new JLabel("Guide Number"));
-                panel.add(numberField);
-                message[1] = panel;
-
-                JOptionPane pane = new JOptionPane(message,
-                        JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION,
-                        null, null, null);
-                JDialog dialog = pane.createDialog(Main.frame,
-                        "Edit Program Details");
-                pane.selectInitialValue();
-                dialog.setVisible(true);
-                dialog.dispose();
-
-                Integer result = (Integer) pane.getValue();
-                String name   = nameField.getText();
-                String number = numberField.getText();
-                if (result != null && result == JOptionPane.OK_OPTION) {
-                    if (name == null || name.trim().equals("")) {
-                        JOptionPane.showMessageDialog(Main.frame,
-                                "Name can't be blank");
-                        return;
-                    }
-                    if (!isValidNumber(number)) {
-                        JOptionPane.showMessageDialog(Main.frame,
-                                "Invalid guide number, format is #.#");
-                        return;
-                    }
-                }
-
-                p.setName(name);
-                int idx = number.indexOf(".");
-                if (idx == -1) {
-                    p.virtualMajor = Short.parseShort(number);
-                } else {
-                    p.virtualMajor = Short.parseShort(number.substring(0, idx));
-                    p.virtualMinor =
-                            Short.parseShort(number.substring(idx + 1));
-                }
-
-                List<Program> programs = Main.model.programMap.get(t);
-                boolean hasTSID = false;
-                for (Program program : programs)
-                    hasTSID |= program.channel.getTsID() != 0;
-
-                if (hasTSID) {
-                    Control d = new Control();
-                    try {
-                        d.connect(deviceId);
-                        LineupServer ls = new LineupServer(
-                                d.get("/lineup/location"), deviceId,
-                                Preferences.getInstance().userUUID);
-                        ls.updatePrograms(Arrays.asList(p));
-                    }
-                    catch (TunerException e) {
-                        JOptionPane.showMessageDialog(Main.frame,
-                                e.getMessage());
-                    }
-                    finally {
-                        d.close();
-                    }
-                }
-
-                Main.model.fireTreeNodesChanged(path);
-            }
-
-            private boolean isValidNumber(String number) {
-                return number.matches("\\d+(\\.\\d+)?");
-            }
-        }));
+        programMenu.add(Actions.getAction(Name.EDIT_PROGRAM));
     }
     public void valueChanged(TreeSelectionEvent e) {
-        path = e.getPath();
         value = e.getPath().getLastPathComponent();
-        if (value instanceof Program)
-            Preferences.getInstance().lastViewedPath = path;
     }
 
     public void mousePressed(MouseEvent e)  { maybeShowPopup(e); }
@@ -998,135 +516,6 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
                 if (popup != null)
                     popup.show(e.getComponent(), e.getX(), e.getY());
             }
-        }
-    }
-}
-class ScanningRunnable implements ProgressAwareRunnable {
-    volatile boolean cancelled = false;
-    ScanningRunnable(Tuner t) {
-        this.t = t;
-    }
-    ProgressBar bar;
-    Tuner t;
-    public void setProgressBar(ProgressBar b) {
-        bar = b;
-    }
-    public void run() {
-        Control device = new Control();
-        try {
-            bar.setStringPainted(true);
-            bar.setString("Connecting to device: " +
-                    Integer.toHexString(t.device.id));
-            device.connect(t.device.id);
-            bar.setString("Locking tuner: " + t.tuner);
-            device.lock(t.tuner);
-            bar.setString("Scanning");
-            final boolean[] hasTSID = new boolean[1];
-            hasTSID[0] = false;
-            final List<Program> programs = new ArrayList<Program>();
-            ChannelScan.scan(device, new ChannelScan.ScanListener() {
-                int progress = 0;
-                boolean configured = false;
-                int found = 0;
-                public void scanningChannel(ChannelScan.ScanEvent e) {
-                    if (cancelled) e.cancelScan();
-                    if (!configured) {
-                        bar.setIndeterminate(false);
-                        bar.setMinimum(0);
-                        bar.setMaximum(e.map.getChannels().size() * 2);
-                        bar.setValue(0);
-                        configured = true;
-                    }
-                    bar.setString(
-                            "Scanning: " + e.channel + " Found: " + found);
-                    bar.setValue(bar.getValue() + 1);
-                    System.out.println(String.format(
-                            "Scanning %d/%d: %s",
-                            e.index, e.map.getChannels().size(), e.channel));
-                }
-                public void foundChannel(ChannelScan.ScanEvent e) {
-                    if (cancelled) e.cancelScan();
-                    bar.setValue(bar.getValue() + 1);
-                    System.out.println("Locked: " + e.getStatus());
-                }
-                public void skippedChannel(ChannelScan.ScanEvent e) {
-                    if (cancelled) e.cancelScan();
-                    bar.setValue(bar.getValue() + 1);
-                    System.out.println("Skipped: " +
-                            (e.getStatus() != null ?
-                                    e.getStatus() : "impossible channel"));
-                }
-                public void programsFound(ChannelScan.ScanEvent e) {
-                    if (cancelled) e.cancelScan();
-                    found += e.channel.getPrograms().size();
-                    programs.addAll(e.channel.getPrograms());
-
-                    System.out.println("BEGIN STREAMINFO:\n" + e.streaminfo +
-                            ":END STREAMINFO");
-                    for (Program p : e.channel.getPrograms())
-                        System.out.println(p);
-                    hasTSID[0] |= e.channel.getTsID() != -1;
-                }
-                public void programsNotFound(ChannelScan.ScanEvent e) {
-                    if (cancelled) e.cancelScan();
-                    System.out.println("BEGIN STREAMINFO:" + e.streaminfo +
-                            ":END STREAMINFO");
-                    System.out.println("No available programs found");
-                }
-            });
-            device.unlock();
-            if (cancelled)
-                return;
-
-            HashSet<Program> nodupes = new HashSet<Program>();
-            for (Iterator<Program> i = programs.iterator(); i.hasNext();) {
-                Program p = i.next();
-                if (nodupes.contains(p)) {
-                    System.out.println(
-                            "Removing duplicate program from scan: " + p);
-                    i.remove();
-                }
-                nodupes.add(p);
-            }
-            System.out.println("Found " + programs.size() + " programs");
-            Main.model.programMap.put(t, programs);
-            try {
-                if (hasTSID[0]) {
-                    bar.setIndeterminate(true);
-                    bar.setString("Matching lineup with SiliconDust");
-                    LineupServer ls = new LineupServer(
-                            device.get("/lineup/location"), t.device.id,
-                            Preferences.getInstance().userUUID);
-                    ls.identifyPrograms(programs);
-                }
-            }
-            catch (final TunerLineupException e) {
-                e.printStackTrace();
-                EventQueue.invokeLater(new Runnable() {
-                    public void run() {
-                        JOptionPane.showMessageDialog(
-                                Main.frame, e.getMessage());
-                    }
-                });
-            }
-            EventQueue.invokeLater(new Runnable() {
-                public void run() {
-                    Main.model.fireTreeStructureChanged(new Object[] {
-                            DeviceTreeModel.ROOT_NODE, t.device, t });
-                }
-            });
-        }
-        catch (final TunerException e) {
-            EventQueue.invokeLater(new Runnable() {
-                public void run() {
-                    JOptionPane.showMessageDialog(
-                            Main.frame, e.getMessage());
-                }
-            });
-            e.printStackTrace();
-        }
-        finally {
-            device.close();
         }
     }
 }
