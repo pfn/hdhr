@@ -1,4 +1,4 @@
-package com.hanhuy.hdhr;
+package com.hanhuy.hdhr.ui;
 
 import java.awt.event.ActionEvent;
 

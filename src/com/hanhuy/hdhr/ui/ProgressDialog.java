@@ -1,4 +1,4 @@
-package com.hanhuy.hdhr;
+package com.hanhuy.hdhr.ui;
 
 import com.hanhuy.common.ui.Util;
 import com.hanhuy.common.ui.ResourceBundleForm;
@@ -46,7 +46,7 @@ public class ProgressDialog extends ResourceBundleForm {
         showProgress(r, null);
     }
     public void showProgress(final Runnable r, final Runnable cancel) {
-        ProgressBar b = new ProgressBar(bar);
+        ProgressBar b = EventQueueWrapper.wrap(ProgressBar.class, bar);
         if (r instanceof ProgressAwareRunnable)
             ((ProgressAwareRunnable)r).setProgressBar(b);
         if (cancel instanceof ProgressAwareRunnable)

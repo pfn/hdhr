@@ -4,7 +4,7 @@ import com.hanhuy.hdhr.config.Discover;
 import com.hanhuy.hdhr.config.TunerException;
 import com.hanhuy.hdhr.config.Control;
 import com.hanhuy.hdhr.config.ChannelMap.Channel.Program;
-import com.hanhuy.hdhr.ProgressDialog;
+import com.hanhuy.hdhr.ui.ProgressDialog;
 import com.hanhuy.hdhr.Main;
 
 import java.util.Map;
