@@ -5,9 +5,11 @@ import java.lang.reflect.Proxy;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
+import java.util.HashMap;
 
 public class EventQueueWrapper implements InvocationHandler {
     private Object instance;
+    private HashMap<Method,Method> methodMap = new HashMap<Method,Method>();
     @SuppressWarnings("unchecked")
     public static <T> T wrap(Class<T> clazz, Object instance) {
         EventQueueWrapper wrapper = new EventQueueWrapper();
@@ -16,9 +18,19 @@ public class EventQueueWrapper implements InvocationHandler {
                 new Class[] { clazz }, wrapper);
     }
 
-    public Object invoke(Object proxy, final Method method, final Object[] args)
+    private Method lookupMethod(Method m) throws Throwable {
+        if (!methodMap.containsKey(m)) {
+            Method method = instance.getClass().getDeclaredMethod(
+                    m.getName(), m.getParameterTypes());
+            methodMap.put(m, method);
+        }
+
+        return methodMap.get(m);
+    }
+    public Object invoke(Object proxy, Method m, final Object[] args)
     throws Throwable {
         final Object[] r = new Object[1];
+        final Method method = lookupMethod(m);
         Class<?> type = method.getReturnType();
         Runnable invoker = new Runnable() {
             public void run() {
