@@ -122,7 +122,6 @@ public class VLCVideoPlayer implements VideoPlayer {
                 "-vvv",
                 //"--ignore-config",
                 "-I",            "dummy",
-                "--no-overlay",
                 "--no-video-title-show",
                 "--no-osd",
                 "--mouse-hide-timeout", "100",
@@ -131,6 +130,7 @@ public class VLCVideoPlayer implements VideoPlayer {
         ));
         if (debug) {
             vlc_args.add("-vvv");
+            vlc_args.add("--no-overlay");
         } else {
             vlc_args.add("--quiet");
             vlc_args.add("1");

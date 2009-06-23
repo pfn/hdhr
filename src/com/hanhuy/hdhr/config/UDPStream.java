@@ -50,4 +50,9 @@ public class UDPStream implements RTPProxy.PacketListener {
     public int getRemotePort() {
         return remotePort;
     }
+
+    @Override
+    public String toString() {
+        return "udp://@localhost:" + getRemotePort();
+    }
 }

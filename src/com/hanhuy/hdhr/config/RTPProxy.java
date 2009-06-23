@@ -10,6 +10,8 @@ import java.net.SocketTimeoutException;
 import java.nio.channels.DatagramChannel;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Collections;
 import java.util.EventListener;
 import java.util.EventObject;
 import java.util.ArrayList;
@@ -190,6 +192,13 @@ public class RTPProxy implements Runnable {
             listeners.clear();
         }
     }
+    /**
+     * Returns a read-only list of listeners
+     */
+    public List<PacketListener> getPacketListeners() {
+        return Collections.unmodifiableList(listeners);
+    }
+
     public void addPacketListener(PacketListener l) {
         synchronized (listeners) {
             listeners.add(l);

@@ -96,4 +96,9 @@ public class HTTPStream implements RTPProxy.PacketListener {
     public int getLocalPort() {
         return server.getAddress().getPort();
     }
+
+    @Override
+    public String toString() {
+        return "http://localhost:" + getLocalPort();
+    }
 }
