@@ -143,13 +143,6 @@ public class EditChannelLineupForm extends ResourceBundleForm {
                 }
             }
         }));;
-        final JButton add = new JButton(new RunnableAction(
-                getString("addName"), getInt("addMnemonic"),
-                new Runnable() {
-            public void run() {
-                javax.swing.JOptionPane.showMessageDialog(Main.frame, "Not yet implemented");
-            }
-        }));;
         final JButton remove = new JButton(new RunnableAction(
                 getString("removeName"), getInt("removeMnemonic"),
                 new Runnable() {
@@ -168,7 +161,6 @@ public class EditChannelLineupForm extends ResourceBundleForm {
         d.add(up,     "up");
         d.add(down,   "down");
         d.add(bottom, "bottom");
-        d.add(add,    "add");
         d.add(remove, "remove");
         d.add(close,  "close");
 
