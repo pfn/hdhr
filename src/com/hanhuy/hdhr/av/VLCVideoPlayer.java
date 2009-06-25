@@ -246,6 +246,8 @@ public class VLCVideoPlayer implements VideoPlayer {
             libvlc.libvlc_audio_set_mute(instance, muting ? 1 : 0, ex);
             throwError(ex);
         }
+        if (!muting)
+            setVolume(volume);
     }
 
     public void setDebug(boolean d) {
@@ -262,7 +264,7 @@ public class VLCVideoPlayer implements VideoPlayer {
 
         volume = Math.min(linear, VLC_VOLUME_MAX);
 
-        if (instance != null) {
+        if (instance != null && !muting) {
             libvlc_exception_t ex = new libvlc_exception_t();
             libvlc.libvlc_audio_set_volume(instance, volume, ex);
             throwError(ex);

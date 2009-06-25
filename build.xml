@@ -182,7 +182,7 @@
       </or>
     </condition>
     <antcall target="copyjar"/>
-    <echo message="${src} ~ ${target.file} ${need.copy}"/>
+    <echo message="${src} ~ ${target.file}"/>
   </target>
 
   <target name="test" depends="compile,compiletest">
