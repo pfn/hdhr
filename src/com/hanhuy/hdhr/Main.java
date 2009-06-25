@@ -193,11 +193,13 @@ public class Main extends ResourceBundleForm implements Runnable {
         menu.add(Actions.getAction(Name.UNSET_TARGET));
         menu.add(Actions.getAction(Name.UNSET_CHANNEL));
         menu.add(Actions.getAction(Name.COPY_SCAN));
+        menu.add(Actions.getAction(Name.EDIT_LINEUP));
         menu.add(Actions.getAction(Name.MATCH_LINEUP));
         menubar.add(menu);
 
         menu = new JMenu(getString("programMenuTitle"));
         menu.setMnemonic(getChar("programMenuMnemonic"));
+        menu.add(Actions.getAction(Name.STREAM_INFO));
         menu.add(Actions.getAction(Name.EDIT_PROGRAM));
         menu.add(Actions.getAction(Name.JUMP_TO_LAST_PROGRAM));
 
@@ -478,12 +480,14 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
         tunerMenu.add(Actions.getAction(Name.UNSET_TARGET));
         tunerMenu.add(Actions.getAction(Name.UNSET_CHANNEL));
         tunerMenu.add(Actions.getAction(Name.COPY_SCAN));
+        tunerMenu.add(Actions.getAction(Name.EDIT_LINEUP));
         tunerMenu.add(Actions.getAction(Name.MATCH_LINEUP));
 
         rootMenu = new JPopupMenu();
         rootMenu.add(Actions.getAction(Name.DISCOVER));
 
         programMenu = new JPopupMenu();
+        programMenu.add(Actions.getAction(Name.STREAM_INFO));
         programMenu.add(Actions.getAction(Name.EDIT_PROGRAM));
     }
     public void valueChanged(TreeSelectionEvent e) {

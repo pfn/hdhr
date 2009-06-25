@@ -1,6 +1,5 @@
 package com.hanhuy.hdhr;
 
-import com.hanhuy.common.ui.DataBindingManager;
 import com.hanhuy.common.ui.ResourceBundleForm;
 import com.hanhuy.hdhr.treemodel.Tuner;
 import com.hanhuy.hdhr.config.Control;

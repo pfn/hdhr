@@ -1,6 +1,7 @@
 package com.hanhuy.hdhr;
 
 import com.hanhuy.common.ui.ResourceBundleForm;
+import com.hanhuy.common.ui.CollectionBackedListModel;
 import com.hanhuy.common.ui.ConsoleViewer;
 import com.hanhuy.hdhr.ui.ProgressAwareRunnable;
 import com.hanhuy.hdhr.ui.ProgressDialog;
@@ -29,12 +30,14 @@ import java.util.Properties;
 import javax.swing.Action;
 import javax.swing.ButtonGroup;
 import javax.swing.JDialog;
+import javax.swing.DefaultListModel;
 import javax.swing.JList;
 import javax.swing.JLabel;
 import javax.swing.JScrollPane;
 import javax.swing.JOptionPane;
 import javax.swing.JRadioButton;
 import javax.swing.JTextField;
+import javax.swing.ScrollPaneConstants;
 import javax.swing.JPanel;
 import javax.swing.tree.TreePath;
 import javax.swing.event.TreeSelectionListener;
@@ -57,9 +60,9 @@ implements TreeSelectionListener {
         ABOUT,
         // need tuner set
         SCAN, UNLOCK_TUNER, UNSET_TARGET, UNSET_CHANNEL,
-        COPY_SCAN, MATCH_LINEUP,
+        COPY_SCAN, MATCH_LINEUP, EDIT_LINEUP,
         // need tuner and program set
-        EDIT_PROGRAM,
+        EDIT_PROGRAM, STREAM_INFO,
     }
     private Actions(Main m) {
         main = m;
@@ -371,8 +374,18 @@ implements TreeSelectionListener {
                         DeviceTreeModel.ROOT_NODE, t.device, t });
             }
         }));
+        actions.put(Name.EDIT_LINEUP, new HDHRAwareAction(
+                getString("editLineupName"), getInt("editLineupMnemonic"),
+                new HDHRAwareRunnable() {
+            public void run() {
+                Tuner t = getTuner();
+                List<Program> programs = Main.model.programMap.get(t);
+                new EditChannelLineupForm(t, programs);
+            }
+        }));
         actions.put(Name.MATCH_LINEUP, new HDHRAwareAction(
-                getString("matchLineupName"), new HDHRAwareRunnable() {
+                getString("matchLineupName"), getInt("matchLineupMnemonic"),
+                new HDHRAwareRunnable() {
             public void run() {
                 final Tuner t = getTuner();
                 final List<Program> programs = Main.model.programMap.get(t);
@@ -609,6 +622,20 @@ implements TreeSelectionListener {
                 return number.matches("\\d+(\\.\\d+)?");
             }
         }));
+        actions.put(Name.STREAM_INFO, new HDHRAwareAction(
+                getString("streamInfoName"), getInt("streamInfoMnemonic"),
+                new HDHRAwareRunnable() {
+            public void run() {
+                Tuner t = getTuner();
+                Program p = getProgram();
+
+                StreamInfoPanel.INSTANCE.show(t, p);
+            }
+
+            private boolean isValidNumber(String number) {
+                return number.matches("\\d+(\\.\\d+)?");
+            }
+        }));
     }
 
     public void valueChanged(TreeSelectionEvent e) {
@@ -619,27 +646,16 @@ implements TreeSelectionListener {
 
             Program p = (Program) value;
             Tuner t = (Tuner) path.getParentPath().getLastPathComponent();
-            for (Name n : Arrays.asList(
-                    Name.SCAN, Name.UNLOCK_TUNER,
-                    Name.UNSET_TARGET, Name.UNSET_CHANNEL,
-                    Name.COPY_SCAN, Name.MATCH_LINEUP)) {
-                
-                getHDHRAction(n).setTuner(t);
-                getHDHRAction(n).setEnabled(true);
-            }
+            enableTunerActions(t);
             getHDHRAction(Name.EDIT_PROGRAM).setProgram(p);
             getHDHRAction(Name.EDIT_PROGRAM).setTuner(t);
             getHDHRAction(Name.EDIT_PROGRAM).setEnabled(true);
+            getHDHRAction(Name.STREAM_INFO).setProgram(p);
+            getHDHRAction(Name.STREAM_INFO).setTuner(t);
+            getHDHRAction(Name.STREAM_INFO).setEnabled(true);
         } else if (value instanceof Tuner) {
             Tuner t = (Tuner) value;
-            for (Name n : Arrays.asList(
-                    Name.SCAN, Name.UNLOCK_TUNER,
-                    Name.UNSET_TARGET, Name.UNSET_CHANNEL,
-                    Name.COPY_SCAN, Name.MATCH_LINEUP)) {
-                
-                getHDHRAction(n).setTuner(t);
-                getHDHRAction(n).setEnabled(true);
-            }
+            enableTunerActions(t);
         } else {
             disableTogglableActions();
         }
@@ -649,9 +665,20 @@ implements TreeSelectionListener {
         for (Name n : Arrays.asList(
                     Name.SCAN, Name.UNLOCK_TUNER,
                     Name.UNSET_TARGET, Name.UNSET_CHANNEL,
-                    Name.COPY_SCAN, Name.MATCH_LINEUP,
-                    Name.EDIT_PROGRAM)) {
+                    Name.COPY_SCAN, Name.MATCH_LINEUP, Name.EDIT_LINEUP,
+                    Name.EDIT_PROGRAM, Name.STREAM_INFO)) {
             getAction(n).setEnabled(false);
+        }
+    }
+
+    private void enableTunerActions(Tuner t) {
+        for (Name n : Arrays.asList(
+                Name.SCAN, Name.UNLOCK_TUNER,
+                Name.UNSET_TARGET, Name.UNSET_CHANNEL,
+                Name.COPY_SCAN, Name.EDIT_LINEUP, Name.MATCH_LINEUP)) {
+            
+            getHDHRAction(n).setTuner(t);
+            getHDHRAction(n).setEnabled(true);
         }
     }
 }

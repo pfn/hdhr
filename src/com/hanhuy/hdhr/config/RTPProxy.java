@@ -26,6 +26,7 @@ public class RTPProxy implements Runnable {
     private int transportErrorCount;
     private int networkErrorCount;
     private int packetCount;
+    private long byteCount;
 
     private final ArrayList<PacketListener> listeners =
             new ArrayList<PacketListener>();
@@ -139,6 +140,7 @@ public class RTPProxy implements Runnable {
             }
 
             packetCount++;
+            byteCount += buf.remaining();
             byte[] packet = new byte[buf.remaining()];
             buf.get(packet);
 
@@ -216,6 +218,10 @@ public class RTPProxy implements Runnable {
             super(RTPProxy.this);
             this.packet = packet;
         }
+    }
+
+    public long getByteCount() {
+        return byteCount;
     }
 
     public int getPacketCount() {
