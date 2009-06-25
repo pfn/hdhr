@@ -221,7 +221,7 @@ public class ChannelMap implements Serializable {
 
             @Override
             public int hashCode() {
-                return channel.frequency;
+                return channel.frequency * number;
             }
 
             @Override
@@ -231,8 +231,6 @@ public class ChannelMap implements Serializable {
                     boolean equals = true;
 
                     equals &= number            == p.number;
-                    equals &= virtualMajor      == p.virtualMajor;
-                    equals &= virtualMinor      == p.virtualMinor;
                     equals &= channel.frequency == p.channel.frequency;
                     return equals;
                 }
