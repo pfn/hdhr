@@ -12,8 +12,6 @@ import com.hanhuy.hdhr.treemodel.Tuner;
 
 import java.awt.Canvas;
 import java.awt.Color;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseAdapter;
 import java.io.IOException;
 import java.util.Map;
 import java.net.InetAddress;
