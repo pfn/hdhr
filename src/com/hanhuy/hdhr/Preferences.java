@@ -8,6 +8,8 @@ import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
+import java.awt.Dimension;
+import java.awt.Point;
 import javax.swing.tree.TreePath;
 
 public class Preferences implements Serializable {
@@ -23,6 +25,11 @@ public class Preferences implements Serializable {
     public boolean programDebug;
     public String videoBackend;
     public String userUUID;
+    public int volume;
+    public boolean muting;
+    public int splitLocation;
+    public Dimension windowSize;
+    public Point windowLocation;
 
     public synchronized static Preferences getInstance() {
         if (INSTANCE == null)

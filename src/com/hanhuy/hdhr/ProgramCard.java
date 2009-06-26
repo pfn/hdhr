@@ -40,6 +40,7 @@ implements TreeSelectionListener, ChangeListener {
     public final JPanel card;
 
     private boolean debug;
+    private boolean playing;
     private boolean mute;
 
 
@@ -102,6 +103,7 @@ implements TreeSelectionListener, ChangeListener {
         player.setVolume(volume);
         player.play(proxy);
 
+        playing = true;
         Main.cards.show(Main.cardPane, CARD_NAME);
     }
 
@@ -119,6 +121,7 @@ implements TreeSelectionListener, ChangeListener {
         stopPlayer(false);
     }
     void stopPlayer(boolean exiting) {
+        playing = false;
 
         if (device != null) {
             try {
@@ -148,7 +151,12 @@ implements TreeSelectionListener, ChangeListener {
 
     public void stateChanged(ChangeEvent e) {
         JSlider slider = (JSlider) e.getSource();
-        volume = slider.getValue();
+        setVolume(slider.getValue());
+    }
+
+    public void setVolume(int volume) {
+        this.volume = volume;
+        Preferences.getInstance().volume = volume;
         if (player != null)
             player.setVolume(volume);
     }
@@ -180,6 +188,7 @@ implements TreeSelectionListener, ChangeListener {
 
     public void setMute(boolean m) {
         mute = m;
+        Preferences.getInstance().muting = m;
         getVideoPlayer().mute(m);
     }
 
@@ -195,5 +204,9 @@ implements TreeSelectionListener, ChangeListener {
     
     public RTPProxy getProxy() {
         return proxy;
+    }
+
+    public boolean isPlaying() {
+        return playing;
     }
 }

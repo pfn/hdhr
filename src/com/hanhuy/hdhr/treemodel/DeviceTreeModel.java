@@ -149,7 +149,7 @@ public class DeviceTreeModel implements TreeModel {
     }
     void fireTreeNodesRemoved(TreeModelEvent e) {
     }
-    public void fireTreeStructureChanged(Object[] path) {
+    public void fireTreeStructureChanged(Object... path) {
         TreeModelEvent e = new TreeModelEvent(this, path);
         for (TreeModelListener l : listeners)
             l.treeStructureChanged(e);

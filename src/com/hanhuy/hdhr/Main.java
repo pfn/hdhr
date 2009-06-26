@@ -57,7 +57,6 @@ import javax.swing.JList;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.ToolTipManager;
 import javax.swing.JDialog;
-import javax.swing.JProgressBar;
 import javax.swing.JToolBar;
 import javax.swing.JSlider;
 import javax.swing.Box;
@@ -78,7 +77,6 @@ import javax.swing.JToggleButton;
 import javax.swing.ImageIcon;
 import javax.swing.JPopupMenu;
 import javax.swing.JOptionPane;
-import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.DefaultBoundedRangeModel;
 import javax.swing.ScrollPaneConstants;
@@ -99,7 +97,7 @@ public class Main extends ResourceBundleForm implements Runnable {
 
     static DeviceTreeModel model = new DeviceTreeModel();
 
-    static JProgressBar netBar, ssBar, seqBar, snqBar;
+    private JSplitPane split;
 
     public static void main(String[] args) throws Exception {
         // prevent performance impact of javaws security manager
@@ -174,7 +172,8 @@ public class Main extends ResourceBundleForm implements Runnable {
             ProgramCard.INSTANCE.setDebug(pDebug);
         }
         RunnableAction debugAction = new RunnableAction(
-                "Debug", new Runnable() {
+                getString("debugName"), getInt("debugMnemonic"),
+                new Runnable() {
             public void run() {
                 boolean debug = debugItem.isSelected();
                 Preferences.getInstance().programDebug = debug;
@@ -188,13 +187,15 @@ public class Main extends ResourceBundleForm implements Runnable {
 
         menu = new JMenu(getString("tunerMenuTitle"));
         menu.setMnemonic(getChar("tunerMenuMnemonic"));
-        menu.add(Actions.getAction(Name.SCAN));
         menu.add(Actions.getAction(Name.UNLOCK_TUNER));
         menu.add(Actions.getAction(Name.UNSET_TARGET));
         menu.add(Actions.getAction(Name.UNSET_CHANNEL));
-        menu.add(Actions.getAction(Name.COPY_SCAN));
-        menu.add(Actions.getAction(Name.EDIT_LINEUP));
+        menu.addSeparator();
+        menu.add(Actions.getAction(Name.CLEAR_LINEUP));
+        menu.add(Actions.getAction(Name.SCAN));
         menu.add(Actions.getAction(Name.MATCH_LINEUP));
+        menu.add(Actions.getAction(Name.EDIT_LINEUP));
+        menu.add(Actions.getAction(Name.COPY_LINEUP));
         menubar.add(menu);
 
         menu = new JMenu(getString("programMenuTitle"));
@@ -246,11 +247,10 @@ public class Main extends ResourceBundleForm implements Runnable {
         jframe.setIconImage(((ImageIcon)getIcon("icon")).getImage());
         initMenu(jframe);
 
-        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+        split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
         TreePopupListener l = new TreePopupListener();
         tree = new JTree(model);
         tree.setExpandsSelectedPaths(true);
-        tree.setDragEnabled(true);
         tree.getSelectionModel().setSelectionMode(
                 TreeSelectionModel.SINGLE_TREE_SELECTION);
         tree.addMouseListener(l);
@@ -324,41 +324,10 @@ public class Main extends ResourceBundleForm implements Runnable {
 
         topPane.add(Box.createHorizontalGlue());
 
-        netBar = new JProgressBar();
-        netBar.setStringPainted(true);
-        netBar.setString("pps:");
-        netBar.setMaximumSize(new Dimension(120, 20));
-        topPane.add(netBar);
-        netBar.setVisible(false);
-        topPane.add(Box.createHorizontalStrut(5));
-
-        ssBar = new JProgressBar();
-        ssBar.setStringPainted(true);
-        ssBar.setString("SS:");
-        ssBar.setMaximumSize(new Dimension(120, 20));
-        topPane.add(ssBar);
-        ssBar.setVisible(false);
-        topPane.add(Box.createHorizontalStrut(5));
-
-        snqBar = new JProgressBar();
-        snqBar.setStringPainted(true);
-        snqBar.setString("SNQ:");
-        snqBar.setMaximumSize(new Dimension(120, 20));
-        topPane.add(snqBar);
-        snqBar.setVisible(false);
-        topPane.add(Box.createHorizontalStrut(5));
-
-        seqBar = new JProgressBar();
-        seqBar.setStringPainted(true);
-        seqBar.setString("SEQ:");
-        seqBar.setMaximumSize(new Dimension(120, 20));
-        topPane.add(seqBar);
-        seqBar.setVisible(false);
-        topPane.add(Box.createHorizontalStrut(5));
-
-
+        boolean mute = Preferences.getInstance().muting;
+        ProgramCard.INSTANCE.setMute(mute);
         final JToggleButton muteButton = new JToggleButton(
-                getIcon("speakerIcon"));
+                getIcon(mute ? "speakerMuteIcon" : "speakerIcon"), mute);
         muteButton.setBorderPainted(false);
         muteButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
@@ -369,8 +338,10 @@ public class Main extends ResourceBundleForm implements Runnable {
             }
         });
         topPane.add(muteButton);
+        int v = Preferences.getInstance().volume;
         final JSlider slider = new JSlider(new DefaultBoundedRangeModel(
-                ProgramCard.DEFAULT_VOLUME, 0, 0, ProgramCard.MAX_VOLUME) {
+                v == 0 ? ProgramCard.DEFAULT_VOLUME : v,
+                0, 0, ProgramCard.MAX_VOLUME) {
             @Override
             public boolean getValueIsAdjusting() {
                 return false;
@@ -409,6 +380,7 @@ public class Main extends ResourceBundleForm implements Runnable {
                 return p;
             }
         };
+        ProgramCard.INSTANCE.setVolume(slider.getValue());
         ToolTipManager.sharedInstance().registerComponent(slider);
         ToolTipManager.sharedInstance().setInitialDelay(50);
         ToolTipManager.sharedInstance().setReshowDelay(0);
@@ -422,6 +394,18 @@ public class Main extends ResourceBundleForm implements Runnable {
 
         jframe.pack();
         Util.centerWindow(jframe);
+
+        Dimension size = Preferences.getInstance().windowSize;
+        Point winLoc = Preferences.getInstance().windowLocation;
+        int location = Preferences.getInstance().splitLocation;
+
+        if (winLoc != null)
+            jframe.setLocation(winLoc);
+        if (size != null)
+            jframe.setSize(size);
+        if (location > 0)
+            split.setDividerLocation(location);
+
         jframe.setVisible(true);
         frame = jframe;
     }
@@ -457,10 +441,16 @@ public class Main extends ResourceBundleForm implements Runnable {
     }
 
     void exit() {
+
+        ProgramCard.INSTANCE.stopPlayer(true);
+        Preferences.getInstance().windowLocation = frame.getLocation();
+        Preferences.getInstance().windowSize = frame.getSize();
+        Preferences.getInstance().splitLocation =
+                split.getDividerLocation();
+
         frame.setVisible(false);
         frame.dispose();
 
-        ProgramCard.INSTANCE.stopPlayer(true);
         Preferences.save();
         System.exit(0);
     }
@@ -475,13 +465,15 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
 
     TreePopupListener() {
         tunerMenu = new JPopupMenu();
-        tunerMenu.add(Actions.getAction(Name.SCAN));
         tunerMenu.add(Actions.getAction(Name.UNLOCK_TUNER));
         tunerMenu.add(Actions.getAction(Name.UNSET_TARGET));
         tunerMenu.add(Actions.getAction(Name.UNSET_CHANNEL));
-        tunerMenu.add(Actions.getAction(Name.COPY_SCAN));
-        tunerMenu.add(Actions.getAction(Name.EDIT_LINEUP));
+        tunerMenu.addSeparator();
+        tunerMenu.add(Actions.getAction(Name.CLEAR_LINEUP));
+        tunerMenu.add(Actions.getAction(Name.SCAN));
         tunerMenu.add(Actions.getAction(Name.MATCH_LINEUP));
+        tunerMenu.add(Actions.getAction(Name.EDIT_LINEUP));
+        tunerMenu.add(Actions.getAction(Name.COPY_LINEUP));
 
         rootMenu = new JPopupMenu();
         rootMenu.add(Actions.getAction(Name.DISCOVER));

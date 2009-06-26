@@ -47,6 +47,7 @@ public class Actions extends ResourceBundleForm
 implements TreeSelectionListener {
 
     private LineupWeb l;
+    private TreePath previousProgram;
 
     private static Actions INSTANCE;
 
@@ -60,7 +61,7 @@ implements TreeSelectionListener {
         ABOUT,
         // need tuner set
         SCAN, UNLOCK_TUNER, UNSET_TARGET, UNSET_CHANNEL,
-        COPY_SCAN, MATCH_LINEUP, EDIT_LINEUP,
+        COPY_LINEUP, MATCH_LINEUP, EDIT_LINEUP, CLEAR_LINEUP,
         // need tuner and program set
         EDIT_PROGRAM, STREAM_INFO,
     }
@@ -130,7 +131,9 @@ implements TreeSelectionListener {
                 getString("jumpToLastName"), getInt("jumpToLastMnemonic"),
                 getString("jumpToLastAccelerator"), new Runnable() {
             public void run() {
-                TreePath last = Preferences.getInstance().lastViewedPath;
+                TreePath last = previousProgram;
+                if (last == null)
+                    last = Preferences.getInstance().lastViewedPath;
                 if (last == null) {
                     JOptionPane.showMessageDialog(Main.frame,
                             getString("jumpToLastError"));
@@ -175,7 +178,7 @@ implements TreeSelectionListener {
             }
         }));
         actions.put(Name.SCAN, new HDHRAwareAction(getString("scanName"),
-                new HDHRAwareRunnable() {
+                getInt("scanMnemonic"), new HDHRAwareRunnable() {
             public void run() {
                 Tuner t = getTuner();
                 Control c = new Control();
@@ -184,6 +187,16 @@ implements TreeSelectionListener {
                     String cmd = String.format("/tuner%d/target",
                             t.tuner.ordinal());
                     String target = c.get(cmd);
+                    cmd = String.format("/tuner%d/lockkey",
+                            t.tuner.ordinal());
+                    String lock = c.get(cmd);
+                    if (!"none".equals(lock)) {
+                        JOptionPane.showMessageDialog(Main.frame,
+                                format("scanTunerLocked", lock),
+                                getString("scanTunerInUseTitle"),
+                                JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
                     if (!"none".equals(target)) {
                         int r = JOptionPane.showConfirmDialog(
                                 Main.frame, getString("scanTunerInUseConfirm"),
@@ -202,16 +215,16 @@ implements TreeSelectionListener {
                     c.close();
                 }
                 List<Program> p = Main.model.programMap.get(t);
+                boolean keep = false;
                 if (p != null && p.size() > 0) {
                     int r = JOptionPane.showConfirmDialog(
-                            Main.frame, getString("scanRescanConfirm"),
+                            Main.frame, getString("scanKeepConfirm"),
                             getString("scanName"), JOptionPane.YES_NO_OPTION);
-                    if (r != JOptionPane.YES_OPTION)
-                        return;
+                    keep = r == JOptionPane.YES_OPTION;
                 }
                 ProgressDialog d = new ProgressDialog(
                         Main.frame, getString("scanTitle"));
-                final ScanningRunnable r = new ScanningRunnable(t);
+                final ScanningRunnable r = new ScanningRunnable(t, keep);
                 d.showProgress(r, new ProgressAwareRunnable() {
                     ProgressBar b;
                     public void setProgressBar(ProgressBar b) {
@@ -230,7 +243,8 @@ implements TreeSelectionListener {
             }
         }));
         actions.put(Name.UNLOCK_TUNER, new HDHRAwareAction(
-                getString("unlockTunerName"), new HDHRAwareRunnable() {
+                getString("unlockTunerName"), getInt("unlockTunerMnemonic"),
+                new HDHRAwareRunnable() {
             public void run() {
                 Control c = new Control();
                 Tuner t = getTuner();
@@ -261,7 +275,8 @@ implements TreeSelectionListener {
             }
         }));
         actions.put(Name.UNSET_TARGET, new HDHRAwareAction(
-                getString("unsetTargetName"), new HDHRAwareRunnable() {
+                getString("unsetTargetName"), getInt("unsetTargetMnemonic"),
+                new HDHRAwareRunnable() {
             public void run() {
                 Control c = new Control();
                 Tuner t = getTuner();
@@ -293,7 +308,8 @@ implements TreeSelectionListener {
             }
         }));
         actions.put(Name.UNSET_CHANNEL, new HDHRAwareAction(
-                getString("unsetChannelName"), new HDHRAwareRunnable() {
+                getString("unsetChannelName"), getInt("unsetChannelMnemonic"),
+                new HDHRAwareRunnable() {
             public void run() {
                 Control c = new Control();
                 Tuner t = getTuner();
@@ -324,8 +340,9 @@ implements TreeSelectionListener {
                 }
             }
         }));
-        actions.put(Name.COPY_SCAN, new HDHRAwareAction(
-                getString("copyScanName"), new HDHRAwareRunnable() {
+        actions.put(Name.COPY_LINEUP, new HDHRAwareAction(
+                getString("copyScanName"), getInt("copyScanMnemonic"),
+                new HDHRAwareRunnable() {
             public void run() {
                 Tuner t = getTuner();
                 int count = Main.model.getChildCount(DeviceTreeModel.ROOT_NODE);
@@ -381,6 +398,22 @@ implements TreeSelectionListener {
                 Tuner t = getTuner();
                 List<Program> programs = Main.model.programMap.get(t);
                 new EditChannelLineupForm(t, programs);
+            }
+        }));
+        actions.put(Name.CLEAR_LINEUP, new HDHRAwareAction(
+                getString("clearLineupName"), getInt("clearLineupMnemonic"),
+                new HDHRAwareRunnable() {
+            public void run() {
+                Tuner t = getTuner();
+                int r = JOptionPane.showConfirmDialog(
+                        Main.frame, getString("clearLineupConfirm"),
+                        getString("clearLineupName"),
+                        JOptionPane.OK_CANCEL_OPTION);
+                if (r != JOptionPane.OK_OPTION)
+                    return;
+                Main.model.programMap.get(t).clear();
+                Main.model.fireTreeStructureChanged(
+                        DeviceTreeModel.ROOT_NODE, t.device, t);
             }
         }));
         actions.put(Name.MATCH_LINEUP, new HDHRAwareAction(
@@ -529,13 +562,14 @@ implements TreeSelectionListener {
             }
         }));
         actions.put(Name.DISCOVER, new RunnableAction(getString("discoverName"),
-                new Runnable() {
+                getInt("discoverMnemonic"), new Runnable() {
             public void run() {
                 Main.model.rediscover();
             }
         }));
         actions.put(Name.EDIT_PROGRAM, new HDHRAwareAction(
-                getString("editProgramName"), new HDHRAwareRunnable() {
+                getString("editProgramName"), getInt("editProgramMnemonic"),
+                new HDHRAwareRunnable() {
             public void run() {
                 Tuner t = getTuner();
                 int deviceId = t.device.id;
@@ -641,7 +675,9 @@ implements TreeSelectionListener {
     public void valueChanged(TreeSelectionEvent e) {
         TreePath path = e.getPath();
         Object value = path.getLastPathComponent();
+        disableTogglableActions();
         if (value instanceof Program) {
+            previousProgram = Preferences.getInstance().lastViewedPath;
             Preferences.getInstance().lastViewedPath = path;
 
             Program p = (Program) value;
@@ -656,8 +692,10 @@ implements TreeSelectionListener {
         } else if (value instanceof Tuner) {
             Tuner t = (Tuner) value;
             enableTunerActions(t);
-        } else {
-            disableTogglableActions();
+            getHDHRAction(Name.SCAN).setTuner(t);
+            getHDHRAction(Name.SCAN).setEnabled(true);
+            getHDHRAction(Name.CLEAR_LINEUP).setTuner(t);
+            getHDHRAction(Name.CLEAR_LINEUP).setEnabled(true);
         }
     }
 
@@ -665,7 +703,8 @@ implements TreeSelectionListener {
         for (Name n : Arrays.asList(
                     Name.SCAN, Name.UNLOCK_TUNER,
                     Name.UNSET_TARGET, Name.UNSET_CHANNEL,
-                    Name.COPY_SCAN, Name.MATCH_LINEUP, Name.EDIT_LINEUP,
+                    Name.COPY_LINEUP,
+                    Name.MATCH_LINEUP, Name.EDIT_LINEUP, Name.CLEAR_LINEUP,
                     Name.EDIT_PROGRAM, Name.STREAM_INFO)) {
             getAction(n).setEnabled(false);
         }
@@ -673,9 +712,8 @@ implements TreeSelectionListener {
 
     private void enableTunerActions(Tuner t) {
         for (Name n : Arrays.asList(
-                Name.SCAN, Name.UNLOCK_TUNER,
-                Name.UNSET_TARGET, Name.UNSET_CHANNEL,
-                Name.COPY_SCAN, Name.EDIT_LINEUP, Name.MATCH_LINEUP)) {
+                Name.UNLOCK_TUNER, Name.UNSET_TARGET, Name.UNSET_CHANNEL,
+                Name.COPY_LINEUP, Name.EDIT_LINEUP, Name.MATCH_LINEUP)) {
             
             getHDHRAction(n).setTuner(t);
             getHDHRAction(n).setEnabled(true);

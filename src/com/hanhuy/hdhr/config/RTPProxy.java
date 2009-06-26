@@ -20,7 +20,10 @@ import java.util.Iterator;
 public class RTPProxy implements Runnable {
     private DatagramChannel dc;
     private short rtp_sequence = (short) 0xffff;
-    private byte[] sequence = new byte[0x2000];
+    /**
+     * valid PID values are 0x0000 to 0x1ffe
+     */
+    private byte[] sequence = new byte[0x1ffe];
 
     private int sequenceErrorCount;
     private int transportErrorCount;
@@ -79,27 +82,28 @@ public class RTPProxy implements Runnable {
     private void checkTS(byte[] packet, int offset) {
         int b1 = ((packet[offset + 1] & 0x1f) << 8) & 0xffff;
         int b2 = packet[offset + 2] & 0xff;
-        int pktID = (b1 | b2) & 0xffff;
+        int pid = (b1 | b2) & 0xffff;
 
-        if (pktID == 0x1fff)
+        if (pid == 0x1fff)
             return;
 
-        if (((packet[offset + 1] >> 7) & 0xff) != 0) {
+        // 0x80 = TEI
+        if ((packet[offset + 1] & 0x80) != 0) {
             transportErrorCount++;
-            sequence[pktID] = (byte) 0xff;
+            sequence[pid] = (byte) 0xff;
             return;
         }
 
         byte continuityCounter = (byte) (packet[offset + 3] & 0x0f);
-        byte lastSeq = sequence[pktID];
+        byte lastSeq = sequence[pid];
 
         if (continuityCounter == ((lastSeq + 1) & 0x0f)) {
-            sequence[pktID] = continuityCounter;
+            sequence[pid] = continuityCounter;
             return;
         }
 
         if (lastSeq == (byte) 0xff) {
-            sequence[pktID] = continuityCounter;
+            sequence[pid] = continuityCounter;
             return;
         }
 
@@ -107,11 +111,12 @@ public class RTPProxy implements Runnable {
             return;
 
         sequenceErrorCount++;
-        sequence[pktID] = continuityCounter;
+        sequence[pid] = continuityCounter;
     }
 
     private void receiveLoop() throws IOException {
         ByteBuffer buf = ByteBuffer.allocateDirect(VIDEO_RTP_DATA_PACKET_SIZE);
+        byte[] packet = new byte[VIDEO_DATA_PACKET_SIZE];
         while (!shutdown) {
 
             buf.clear();
@@ -141,7 +146,6 @@ public class RTPProxy implements Runnable {
 
             packetCount++;
             byteCount += buf.remaining();
-            byte[] packet = new byte[buf.remaining()];
             buf.get(packet);
 
             for (int i = 0; i < 7; i++)

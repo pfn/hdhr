@@ -14,15 +14,16 @@ import com.hanhuy.hdhr.config.LineupServer;
 import java.awt.EventQueue;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Iterator;
+import java.util.HashMap;
 
 import javax.swing.JOptionPane;
 
 class ScanningRunnable implements ProgressAwareRunnable {
     volatile boolean cancelled = false;
-    ScanningRunnable(Tuner t) {
+    private final boolean keepOld;
+    ScanningRunnable(Tuner t, boolean keepOld) {
         this.t = t;
+        this.keepOld = keepOld;
     }
     ProgressBar bar;
     Tuner t;
@@ -96,18 +97,33 @@ class ScanningRunnable implements ProgressAwareRunnable {
             if (cancelled)
                 return;
 
-            HashSet<Program> nodupes = new HashSet<Program>();
-            for (Iterator<Program> i = programs.iterator(); i.hasNext();) {
-                Program p = i.next();
-                if (nodupes.contains(p)) {
-                    System.out.println(
-                            "Removing duplicate program from scan: " + p);
-                    i.remove();
+            List<Program> oldPrograms = Main.model.programMap.get(t);
+            int oldCount = oldPrograms.size();
+            long now = System.currentTimeMillis();
+            if (!keepOld) {
+                oldPrograms.retainAll(programs);
+                for (Program p : oldPrograms) {
+                    int idx = programs.indexOf(p);
+                    Program program = programs.get(idx);
+                    p.channel.scanTime = now;
+                    p.channel.setTsID(program.channel.getTsID());
                 }
-                nodupes.add(p);
+            } else {
+                for (Program p : oldPrograms) {
+                    if (programs.contains(p)) {
+                        int idx = programs.indexOf(p);
+                        Program program = programs.get(idx);
+                        p.channel.scanTime = now;
+                        p.channel.setTsID(program.channel.getTsID());
+                    }
+                }
             }
+            int oldRemoved = oldCount - oldPrograms.size();
+            programs.removeAll(oldPrograms);
+            oldPrograms.addAll(programs);
+            if (oldCount > 0 && !keepOld)
+                System.out.println("Removed " + oldRemoved + " old programs");
             System.out.println("Found " + programs.size() + " programs");
-            Main.model.programMap.put(t, programs);
             try {
                 if (hasTSID[0]) {
                     bar.setIndeterminate(true);
@@ -115,7 +131,7 @@ class ScanningRunnable implements ProgressAwareRunnable {
                     LineupServer ls = new LineupServer(
                             device.get("/lineup/location"), t.device.id,
                             Preferences.getInstance().userUUID);
-                    ls.identifyPrograms(programs);
+                    ls.identifyPrograms(oldPrograms);
                 }
             }
             catch (final TunerLineupException e) {

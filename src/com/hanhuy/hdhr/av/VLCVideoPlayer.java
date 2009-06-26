@@ -252,8 +252,7 @@ public class VLCVideoPlayer implements VideoPlayer {
 
     public void setDebug(boolean d) {
         debug = d;
-        libvlc = debug ?
-                (LibVlc) PrintWrapper.wrap(LibVlc.class, _libvlc) : _libvlc;
+        libvlc = debug ? PrintWrapper.wrap(LibVlc.class, _libvlc) : _libvlc;
     }
     public void setVolume(int volume) {
         this.volume = volume;

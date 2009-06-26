@@ -25,7 +25,6 @@ import javax.swing.JProgressBar;
 public class StreamInfoPanel extends ResourceBundleForm {
 
     private JLabel name        = new JLabel();
-    private JLabel channel     = new JLabel();
     private JLabel program     = new JLabel();
     private JLabel target      = new JLabel();
     private JLabel bitrate     = new JLabel();
@@ -52,7 +51,6 @@ public class StreamInfoPanel extends ResourceBundleForm {
 
         panel.add(name,    "name");
         panel.add(target,  "target");
-        panel.add(channel, "channel");
         panel.add(program, "program");
 
         ssBar.setMaximum(100);
@@ -125,7 +123,6 @@ public class StreamInfoPanel extends ResourceBundleForm {
         try {
             device.connect(t.device.id);
             target.setText(device.get(tuner + "target"));
-            channel.setText(device.get(tuner + "channel"));
             Map<String,String> status = Control.parseStatus(
                     device.get(tuner + "status"));
             int ss  = Integer.parseInt(status.get("ss"));
@@ -133,7 +130,7 @@ public class StreamInfoPanel extends ResourceBundleForm {
             int snq = Integer.parseInt(status.get("snq"));
             setStatusBars(ssBar, snqBar, seqBar, ss, seq, snq,
                     status.get("lock"), false);
-            program.setText(device.get(tuner + "program"));
+            program.setText(p.toString());
         }
         catch (TunerException e) {
             lastTuner = null;

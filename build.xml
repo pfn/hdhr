@@ -56,8 +56,7 @@
     <mkdir dir="${build.dir}"/>
     <javac srcdir="${src.dir}" destdir="${build.dir}" debug="on"
            target="1.5" source="1.5">
-      <compilerarg value="-Xlint:unchecked"/>
-      <compilerarg value="-Xlint:deprecation"/>
+      <compilerarg value="-Xlint:all,-serial"/>
       <include name="com/hanhuy/**"/>
       <classpath refid="class.path"/>
     </javac>
@@ -66,8 +65,7 @@
     <mkdir dir="${test.build.dir}"/>
     <javac srcdir="${test.dir}" destdir="${test.build.dir}" debug="on"
            target="1.5" source="1.5">
-      <compilerarg value="-Xlint:unchecked"/>
-      <compilerarg value="-Xlint:deprecation"/>
+      <compilerarg value="-Xlint:all,-serial"/>
       <classpath>
         <path refid="class.path"/>
         <pathelement location="${build.dir}"/>

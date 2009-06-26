@@ -135,11 +135,14 @@ public class EditChannelLineupForm extends ResourceBundleForm {
                 d.dispose();
                 d = null;
                 if (updated) {
+                    boolean playing = ProgramCard.INSTANCE.isPlaying();
                     Main.model.fireTreeStructureChanged(new Object[] {
                         DeviceTreeModel.ROOT_NODE, t.device, t
                     });
-                    Actions.getAction(Actions.Name.JUMP_TO_LAST_PROGRAM).
-                            actionPerformed(null);
+                    if (playing) {
+                        Actions.getAction(Actions.Name.JUMP_TO_LAST_PROGRAM).
+                                actionPerformed(null);
+                    }
                 }
             }
         }));;

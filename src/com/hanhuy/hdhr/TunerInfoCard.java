@@ -75,30 +75,20 @@ implements TreeSelectionListener {
         String tuner = String.format("/tuner%d/", t.tuner.ordinal());
         try {
             device.connect(t.device.id);
-            if (!task.isProgram) {
-                lockedBy.setText(device.get(tuner + "lockkey"));
-                target.setText(device.get(tuner + "target"));
-                channel.setText(device.get(tuner + "channel"));
-            }
+            lockedBy.setText(device.get(tuner + "lockkey"));
+            target.setText(device.get(tuner + "target"));
+            channel.setText(device.get(tuner + "channel"));
             Map<String,String> status = Control.parseStatus(
                     device.get(tuner + "status"));
             int ss  = Integer.parseInt(status.get("ss"));
             int seq = Integer.parseInt(status.get("seq"));
             int snq = Integer.parseInt(status.get("snq"));
-            if (task.isProgram) {
-                setStatusBars(Main.ssBar, Main.snqBar, Main.seqBar,
-                        ss, seq, snq, status.get("lock"), true);
-                setNetBar();
-            } else {
-                setStatusBars(ssBar, snqBar, seqBar, ss, seq, snq,
-                        status.get("lock"), false);
-            }
-            if (!task.isProgram) {
-                channelmap.setText(device.get(tuner + "channelmap"));
-                filter.setText(device.get(tuner + "filter"));
-                program.setText(device.get(tuner + "program"));
-                debug.setText("<html><pre>" + device.get(tuner + "debug"));
-            }
+            setStatusBars(ssBar, snqBar, seqBar, ss, seq, snq,
+                    status.get("lock"), false);
+            channelmap.setText(device.get(tuner + "channelmap"));
+            filter.setText(device.get(tuner + "filter"));
+            program.setText(device.get(tuner + "program"));
+            debug.setText("<html><pre>" + device.get(tuner + "debug"));
         }
         catch (TunerException e) {
             lastTuner = null;
@@ -108,34 +98,6 @@ implements TreeSelectionListener {
         finally {
             device.close();
         }
-    }
-
-    private int lastCount;
-    private int lastErrorCount;
-    private void setNetBar() {
-        if (ProgramCard.INSTANCE.getProxy() == null) return;
-        int count = ProgramCard.INSTANCE.getProxy().getPacketCount();
-        int packets = count - lastCount;
-
-        int errors = ProgramCard.INSTANCE.getProxy().getErrorsCount();
-        int le = errors - lastErrorCount;
-        int quality = (int) ((1.0 - ((double) le / packets)) * 100);
-
-        Main.netBar.setValue(quality);
-        String s = String.format(
-                "q=%d%% pps=%d err=%d", quality, packets, errors);
-        Main.netBar.setString(s);
-        if (ProgramCard.INSTANCE.isDebug())
-            System.out.println("[tuner status] " + s);
-
-        Color barColor;
-        if (quality >= 98) 
-            barColor = green;
-        else
-            barColor = red;
-        Main.netBar.setForeground(barColor);
-        lastCount = count;
-        lastErrorCount = errors;
     }
 
     private void setStatusBars(
@@ -184,26 +146,11 @@ implements TreeSelectionListener {
         Object[] path = e.getPath().getPath();
         Object item = path[path.length - 1];
 
-        Main.netBar.setVisible(false);
-        Main.ssBar.setVisible(false);
-        Main.seqBar.setVisible(false);
-        Main.snqBar.setVisible(false);
         if (item instanceof Tuner) {
             lastTuner = (Tuner) item;
             task = new RepeatingTask();
             new Thread(task, "TunerInfoCard").start();
             Main.cards.show(Main.cardPane, CARD_NAME);
-        } else if (item instanceof Program && e.isAddedPath()) {
-            lastTuner = (Tuner) path[path.length - 2];
-
-            task = new RepeatingTask();
-            task.isProgram = true;
-            new Thread(task, "TunerInfo-ProgramCard").start();
-
-            Main.netBar.setVisible(true);
-            Main.ssBar.setVisible(true);
-            Main.seqBar.setVisible(true);
-            Main.snqBar.setVisible(true);
         }
     }
     private void stopThread() {
@@ -216,7 +163,6 @@ implements TreeSelectionListener {
     }
     class RepeatingTask implements Runnable {
         public boolean shutdown = false;
-        public volatile boolean isProgram = false;
         public void run() {
             synchronized (this) {
                 while (!shutdown && lastTuner != null) {
