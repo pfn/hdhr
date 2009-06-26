@@ -93,6 +93,8 @@ public class Main extends ResourceBundleForm implements Runnable {
     public static CardLayout cards;
     public static JPanel cardPane;
 
+    private JMenu deinterlacerMenu;
+
     static JTree tree;
 
     static DeviceTreeModel model = new DeviceTreeModel();
@@ -149,6 +151,8 @@ public class Main extends ResourceBundleForm implements Runnable {
     private void initMenu(JFrame container) {
         JMenuBar menubar = new JMenuBar();
         container.setJMenuBar(menubar);
+        // necessary due to canvas
+        JPopupMenu.setDefaultLightWeightPopupEnabled(false);
         JMenu menu;
 
         menu = new JMenu(getString("fileMenuTitle"));
@@ -232,11 +236,51 @@ public class Main extends ResourceBundleForm implements Runnable {
 
         menubar.add(menu);
 
+        menu = new JMenu(getString("deinterlacersMenuTitle"));
+        menu.setMnemonic(getChar("deinterlacersMenuMnemonic"));
+        deinterlacerMenu = menu;
+        setDeinterlacers(
+                ProgramCard.INSTANCE.getVideoPlayer().getDeinterlacers());
+        menubar.add(menu);
+
         menu = new JMenu(getString("helpMenuTitle"));
         menu.setMnemonic(getChar("helpMenuMnemonic"));
 
         menu.add(Actions.getAction(Name.ABOUT));
         menubar.add(menu);
+    }
+
+    private void setDeinterlacers(String[] deinterlacers) {
+        deinterlacerMenu.removeAll();
+        ButtonGroup g = new ButtonGroup();
+        ActionListener l = new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                String c = e.getActionCommand();
+                ProgramCard.INSTANCE.getVideoPlayer().setDeinterlacer(c);
+                Preferences.getInstance().deinterlacer = c;
+            }
+        };
+        String deint = Preferences.getInstance().deinterlacer;
+        boolean hasDefault = false;
+        for (int i = 0; i < deinterlacers.length; i++) {
+            boolean isDefault = deinterlacers[i].equals(deint);
+            hasDefault |= isDefault;
+            JRadioButtonMenuItem item = new JRadioButtonMenuItem(
+                    deinterlacers[i], isDefault);
+            if (isDefault)
+                ProgramCard.INSTANCE.getVideoPlayer().setDeinterlacer(
+                        deinterlacers[i]);
+            g.add(item);
+            item.setActionCommand(deinterlacers[i]);
+            item.addActionListener(l);
+            deinterlacerMenu.add(item);
+        }
+        JRadioButtonMenuItem item = new JRadioButtonMenuItem(
+                "none", deinterlacers.length == 0 || !hasDefault);
+        g.add(item);
+        item.setActionCommand(null);
+        item.addActionListener(l);
+        deinterlacerMenu.add(item);
     }
 
     public void run() {

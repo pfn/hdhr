@@ -676,8 +676,8 @@ implements TreeSelectionListener {
         TreePath path = e.getPath();
         Object value = path.getLastPathComponent();
         disableTogglableActions();
+        previousProgram = Preferences.getInstance().lastViewedPath;
         if (value instanceof Program) {
-            previousProgram = Preferences.getInstance().lastViewedPath;
             Preferences.getInstance().lastViewedPath = path;
 
             Program p = (Program) value;

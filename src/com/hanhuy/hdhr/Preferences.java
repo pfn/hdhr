@@ -30,6 +30,7 @@ public class Preferences implements Serializable {
     public int splitLocation;
     public Dimension windowSize;
     public Point windowLocation;
+    public String deinterlacer;
 
     public synchronized static Preferences getInstance() {
         if (INSTANCE == null)

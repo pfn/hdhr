@@ -62,6 +62,12 @@ public class ExternalVLC implements Runnable {
                 player.setDebug(debug != 0);
             }
         });
+        commands.put("deinterlace", new Command() {
+            public void execute(String... args) {
+                String s = args[0];
+                player.setDeinterlacer("null".equals(s) ? null : s);
+            }
+        });
         commands.put("quit", new Command() {
             public void execute(String... args) {
                 player.dispose();

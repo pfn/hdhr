@@ -289,4 +289,12 @@ public class MplayerVideoPlayer implements VideoPlayer {
             p.destroy();
         }
     }
+
+    // TODO implement
+    public String[] getDeinterlacers() {
+        return new String[0];
+    }
+
+    public void setDeinterlacer(String deinterlacer) {
+    }
 }

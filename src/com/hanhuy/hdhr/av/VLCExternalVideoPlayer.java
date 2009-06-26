@@ -41,6 +41,7 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
     private int volume;
     private boolean muting;
     private boolean debug;
+    private String deinterlacer;
 
     private Mode mode;
 
@@ -109,6 +110,19 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
         }
     }
 
+    public String[] getDeinterlacers() {
+        return VLCVideoPlayer.deinterlacers.toArray(
+                new String[VLCVideoPlayer.deinterlacers.size()]);
+    }
+
+    public void setDeinterlacer(String deinterlacer) {
+        if (deinterlacer != null &&
+                !VLCVideoPlayer.deinterlacers.contains(deinterlacer))
+            deinterlacer = null;
+        if (io != null)
+            io.cmd("deinterlace " + deinterlacer);
+        this.deinterlacer = deinterlacer;
+    }
     public void play(String uri) {
         if (io != null && !io.isRunning)
             io = null;
@@ -116,6 +130,7 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
         if (io == null)
             io = new IO(Native.getComponentID(c));
 
+        setDeinterlacer(deinterlacer);
         setDebug(debug);
         mute(muting);
         io.cmd("play " + uri);

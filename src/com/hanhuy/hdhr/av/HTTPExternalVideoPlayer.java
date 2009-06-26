@@ -1,6 +1,7 @@
 package com.hanhuy.hdhr.av;
 
 import com.hanhuy.hdhr.Main;
+import com.hanhuy.hdhr.Actions;
 import com.hanhuy.hdhr.config.RTPProxy;
 import com.hanhuy.hdhr.config.HTTPStream;
 
@@ -40,8 +41,8 @@ public class HTTPExternalVideoPlayer implements VideoPlayer {
             System.out.println("Streaming at http://localhost:" + port);
             EventQueue.invokeLater(new Runnable() {
                 public void run() {
-                    JOptionPane.showMessageDialog(Main.frame,
-                            "Streaming at http://localhost:" + port);
+                    Actions.getAction(
+                            Actions.Name.STREAM_INFO).actionPerformed(null);
                 }
             });
         }
@@ -54,5 +55,12 @@ public class HTTPExternalVideoPlayer implements VideoPlayer {
     }
 
     public void setSurface(Component c) {
+    }
+
+    public String[] getDeinterlacers() {
+        return new String[0];
+    }
+
+    public void setDeinterlacer(String d) {
     }
 }

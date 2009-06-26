@@ -12,5 +12,7 @@ public interface VideoPlayer {
     void setVolume(int volume);
     void mute(boolean muting);
     void setDebug(boolean debug);
+    String[] getDeinterlacers();
+    void setDeinterlacer(String deinterlacer);
     //String getVolumeLabel(int level);
 }

@@ -5,6 +5,7 @@ import com.hanhuy.hdhr.config.UDPStream;
 
 import java.awt.Component;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Arrays;
 import java.io.IOException;
 
@@ -26,9 +27,15 @@ public class VLCVideoPlayer implements VideoPlayer {
     public final static int SLIDER_VOLUME_0DB = 160;
     public final static boolean isJWS;
 
+    final static List<String> deinterlacers = Arrays.asList(
+            "discard", "blend", "mean", "bob", "linear", "x");
+
+    private String deinterlacer;
+
     private boolean muting;
 
     private final static String LIBVLC_VERSION;
+    private String lastUri;
 
     private final static LibVlc _libvlc;
     private LibVlc libvlc;
@@ -109,6 +116,7 @@ public class VLCVideoPlayer implements VideoPlayer {
     }
 
     public void play(String uri) {
+        lastUri = uri;
         final libvlc_exception_t ex = new libvlc_exception_t();
 
         //String defaultLibraryPath = "C:\\Program Files\\VideoLAN\\vlc";
@@ -124,10 +132,14 @@ public class VLCVideoPlayer implements VideoPlayer {
                 "-I",            "dummy",
                 "--no-video-title-show",
                 "--no-osd",
-                "--mouse-hide-timeout", "100",
-                "--video-filter",       "deinterlace",
-                "--deinterlace-mode",   "linear"
+                "--mouse-hide-timeout", "100"
         ));
+        if (deinterlacer != null) {
+            vlc_args.add("--video-filter");
+            vlc_args.add("deinterlace");
+            vlc_args.add("--deinterlace-mode");
+            vlc_args.add(deinterlacer);
+        }
         if (debug) {
             vlc_args.add("-vvv");
             vlc_args.add("--no-overlay");
@@ -271,5 +283,19 @@ public class VLCVideoPlayer implements VideoPlayer {
     }
     public static double getDB(int value) {
         return (double) (value - SLIDER_VOLUME_0DB) / 10;
+    }
+
+    public String[] getDeinterlacers() {
+        return deinterlacers.toArray(new String[deinterlacers.size()]);
+    }
+
+    public void setDeinterlacer(String deinterlacer) {
+        if (deinterlacer != null && !deinterlacers.contains(deinterlacer))
+            deinterlacer = null;
+        this.deinterlacer = deinterlacer;
+        if (player != null) {
+            stop();
+            play(lastUri);
+        }
     }
 }

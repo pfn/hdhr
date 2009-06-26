@@ -1,6 +1,7 @@
 package com.hanhuy.hdhr.av;
 
 import com.hanhuy.hdhr.Main;
+import com.hanhuy.hdhr.Actions;
 import com.hanhuy.hdhr.config.RTPProxy;
 import com.hanhuy.hdhr.config.UDPStream;
 
@@ -32,7 +33,6 @@ public class UDPExternalVideoPlayer implements VideoPlayer {
             us.close();
     }
 
-
     public void play(RTPProxy proxy) {
         try {
             us = new UDPStream();
@@ -41,8 +41,8 @@ public class UDPExternalVideoPlayer implements VideoPlayer {
             System.out.println("Streaming to udp://@localhost:" + port);
             EventQueue.invokeLater(new Runnable() {
                 public void run() {
-                    JOptionPane.showMessageDialog(Main.frame,
-                            "Streaming to udp://@localhost:" + port);
+                    Actions.getAction(
+                            Actions.Name.STREAM_INFO).actionPerformed(null);
                 }
             });
         }
@@ -55,5 +55,12 @@ public class UDPExternalVideoPlayer implements VideoPlayer {
     }
 
     public void setSurface(Component c) {
+    }
+
+    public String[] getDeinterlacers() {
+        return new String[0];
+    }
+
+    public void setDeinterlacer(String d) {
     }
 }
