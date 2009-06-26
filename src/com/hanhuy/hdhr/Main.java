@@ -17,6 +17,7 @@ import com.hanhuy.hdhr.treemodel.DeviceTreeCellRenderer;
 import com.hanhuy.hdhr.treemodel.Tuner;
 import com.hanhuy.hdhr.treemodel.Device;
 import com.hanhuy.hdhr.av.VideoPlayerFactory;
+import com.hanhuy.hdhr.av.VideoPlayer;
 import com.hanhuy.hdhr.ui.ProgressAwareRunnable;
 import com.hanhuy.hdhr.ui.ProgressBar;
 import com.hanhuy.hdhr.ui.ProgressDialog;
@@ -219,8 +220,9 @@ public class Main extends ResourceBundleForm implements Runnable {
             public void actionPerformed(ActionEvent e) {
                 String c = e.getActionCommand();
                 Preferences.getInstance().videoBackend = c;
-                ProgramCard.INSTANCE.setVideoPlayer(
-                        VideoPlayerFactory.getVideoPlayer(c));
+                VideoPlayer player = VideoPlayerFactory.getVideoPlayer(c);
+                ProgramCard.INSTANCE.setVideoPlayer(player);
+                setDeinterlacers(player.getDeinterlacers());
             }
         };
         String defaultBackend = Preferences.getInstance().videoBackend;
