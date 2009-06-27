@@ -41,6 +41,7 @@ public class RTPProxy implements Runnable, PacketSource {
 
     public RTPProxy(InetAddress bindHost) throws IOException, SocketException {
         dc = DatagramChannel.open();
+        dc.socket().setReceiveBufferSize(VIDEO_RTP_DATA_PACKET_SIZE * 20);
         dc.socket().setSoTimeout(1000);
         dc.socket().bind(new InetSocketAddress(bindHost, 0));
 
