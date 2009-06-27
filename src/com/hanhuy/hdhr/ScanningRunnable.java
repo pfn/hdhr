@@ -99,6 +99,8 @@ implements ProgressAwareRunnable {
                 return;
 
             List<Program> oldPrograms = Main.model.programMap.get(t);
+            if (oldPrograms == null)
+                oldPrograms = new ArrayList<Program>();
             int oldCount = oldPrograms.size();
             long now = System.currentTimeMillis();
             if (!keepOld) {
