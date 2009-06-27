@@ -223,7 +223,7 @@ implements TreeSelectionListener {
                     keep = r == JOptionPane.YES_OPTION;
                 }
                 ProgressDialog d = new ProgressDialog(
-                        Main.frame, getString("scanTitle"));
+                        Main.frame, getString("scanTitle"), false);
                 final ScanningRunnable r = new ScanningRunnable(t, keep);
                 d.showProgress(r, new ProgressAwareRunnable() {
                     ProgressBar b;
@@ -236,10 +236,6 @@ implements TreeSelectionListener {
                         r.cancelled = true;
                     }
                 });
-                if (r.cancelled) return;
-                JOptionPane.showMessageDialog(Main.frame,
-                        format("scanFoundPrograms",
-                                Main.model.programMap.get(t).size()));
             }
         }));
         actions.put(Name.UNLOCK_TUNER, new HDHRAwareAction(

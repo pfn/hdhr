@@ -1,5 +1,6 @@
 package com.hanhuy.hdhr;
 
+import com.hanhuy.common.ui.ResourceBundleForm;
 import com.hanhuy.hdhr.treemodel.DeviceTreeModel;
 import com.hanhuy.hdhr.treemodel.Tuner;
 import com.hanhuy.hdhr.ui.ProgressAwareRunnable;
@@ -18,7 +19,8 @@ import java.util.HashMap;
 
 import javax.swing.JOptionPane;
 
-class ScanningRunnable implements ProgressAwareRunnable {
+class ScanningRunnable extends ResourceBundleForm
+implements ProgressAwareRunnable {
     volatile boolean cancelled = false;
     private final boolean keepOld;
     ScanningRunnable(Tuner t, boolean keepOld) {
@@ -34,12 +36,12 @@ class ScanningRunnable implements ProgressAwareRunnable {
         Control device = new Control();
         try {
             bar.setStringPainted(true);
-            bar.setString("Connecting to device: " +
-                    Integer.toHexString(t.device.id));
+            bar.setString(format("connectingToDevice",
+                    Integer.toHexString(t.device.id)));
             device.connect(t.device.id);
-            bar.setString("Locking tuner: " + t.tuner);
+            bar.setString(format("lockingTuner", t.tuner));
             device.lock(t.tuner);
-            bar.setString("Scanning");
+            bar.setString(getString("scanning"));
             final boolean[] hasTSID = new boolean[1];
             hasTSID[0] = false;
             final List<Program> programs = new ArrayList<Program>();
@@ -56,8 +58,7 @@ class ScanningRunnable implements ProgressAwareRunnable {
                         bar.setValue(0);
                         configured = true;
                     }
-                    bar.setString(
-                            "Scanning: " + e.channel + " Found: " + found);
+                    bar.setString(format("scanStatus", e.channel, found));
                     bar.setValue(bar.getValue() + 1);
                     System.out.println(String.format(
                             "Scanning %d/%d: %s",
@@ -143,12 +144,28 @@ class ScanningRunnable implements ProgressAwareRunnable {
                     }
                 });
             }
+            bar.setIndeterminate(false);
+            bar.setMaximum(100);
+            bar.setValue(100);
+            bar.setString(getString("scanComplete"));
             EventQueue.invokeLater(new Runnable() {
                 public void run() {
                     Main.model.fireTreeStructureChanged(new Object[] {
                             DeviceTreeModel.ROOT_NODE, t.device, t });
                 }
             });
+            String message;
+            if (oldCount > 0 && !keepOld) {
+                message = format("scanUpdatedPrograms",
+                        programs.size(), oldRemoved);
+            } else if (oldCount > 0) {
+                message = format("scanNewPrograms",
+                        programs.size());
+            } else {
+                message = format("scanFoundPrograms",
+                        Main.model.programMap.get(t).size());
+            }
+            JOptionPane.showMessageDialog(Main.frame, message);
         }
         catch (final TunerException e) {
             EventQueue.invokeLater(new Runnable() {

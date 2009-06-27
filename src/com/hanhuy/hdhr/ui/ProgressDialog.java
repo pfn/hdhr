@@ -26,8 +26,11 @@ public class ProgressDialog extends ResourceBundleForm {
         this(parent, null);
     }
     public ProgressDialog(Frame parent, String title) {
+        this(parent, title, true);
+    }
+    public ProgressDialog(Frame parent, String title, boolean modal) {
         this.parent = parent;
-        dialog = new JDialog(parent, title, true);
+        dialog = new JDialog(parent, title, modal);
         dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
         bar = new JProgressBar();
         Dimension d = bar.getPreferredSize();
