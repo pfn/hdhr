@@ -2,7 +2,8 @@ package com.hanhuy.hdhr;
 
 import com.hanhuy.common.ui.ResourceBundleForm;
 import com.hanhuy.hdhr.treemodel.Tuner;
-import com.hanhuy.hdhr.config.RTPProxy;
+import com.hanhuy.hdhr.stream.RTPProxy;
+import com.hanhuy.hdhr.stream.PacketListener;
 import com.hanhuy.hdhr.config.Control;
 import com.hanhuy.hdhr.config.TunerException;
 import com.hanhuy.hdhr.config.ChannelMap.Channel.Program;
@@ -142,7 +143,7 @@ public class StreamInfoPanel extends ResourceBundleForm {
             device.close();
         }
 
-        Iterator<RTPProxy.PacketListener> listeners =
+        Iterator<PacketListener> listeners =
                 proxy.getPacketListeners().iterator();
         String destinations = "";
         if (listeners.hasNext())

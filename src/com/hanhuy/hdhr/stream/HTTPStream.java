@@ -1,4 +1,4 @@
-package com.hanhuy.hdhr.config;
+package com.hanhuy.hdhr.stream;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,7 +14,7 @@ import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
-public class HTTPStream implements RTPProxy.PacketListener {
+public class HTTPStream implements PacketListener {
 
     private HttpServer server;
     private volatile boolean shutdown;
@@ -74,7 +74,7 @@ public class HTTPStream implements RTPProxy.PacketListener {
         server.stop(1);
     }
 
-    public void packetArrived(RTPProxy.PacketEvent e) throws IOException {
+    public void packetArrived(PacketEvent e) throws IOException {
         byte[] packet = e.packet;
 
         if (shutdown) return;

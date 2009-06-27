@@ -1,8 +1,9 @@
 package com.hanhuy.hdhr.av;
 
-import com.hanhuy.hdhr.config.RTPProxy;
-import com.hanhuy.hdhr.config.UDPStream;
-import com.hanhuy.hdhr.config.HTTPStream;
+import com.hanhuy.hdhr.stream.PacketSource;
+import com.hanhuy.hdhr.stream.PacketListener;
+import com.hanhuy.hdhr.stream.UDPStream;
+import com.hanhuy.hdhr.stream.HTTPStream;
 
 import java.awt.Component;
 import java.awt.EventQueue;
@@ -32,7 +33,7 @@ import com.sun.jna.Platform;
 public class VLCExternalVideoPlayer implements VideoPlayer {
     public static enum Mode { UDP, HTTP };
 
-    private RTPProxy.PacketListener l;
+    private PacketListener l;
     private IO io = null;
     private Component c;
     volatile boolean playing;
@@ -82,7 +83,7 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
     }
 
 
-    public void play(RTPProxy proxy) {
+    public void play(PacketSource source) {
         try {
             int port;
             String url;
@@ -102,7 +103,7 @@ public class VLCExternalVideoPlayer implements VideoPlayer {
             default:
                 throw new IllegalArgumentException(mode.toString());
             }
-            proxy.addPacketListener(l);
+            source.addPacketListener(l);
             play(url);
         }
         catch (IOException e) {

@@ -1,9 +1,8 @@
 package com.hanhuy.hdhr.av;
 
-import com.hanhuy.hdhr.Main;
 import com.hanhuy.hdhr.Actions;
-import com.hanhuy.hdhr.config.RTPProxy;
-import com.hanhuy.hdhr.config.HTTPStream;
+import com.hanhuy.hdhr.stream.PacketSource;
+import com.hanhuy.hdhr.stream.HTTPStream;
 
 import java.awt.Component;
 import java.awt.EventQueue;
@@ -33,10 +32,10 @@ public class HTTPExternalVideoPlayer implements VideoPlayer {
     }
 
 
-    public void play(RTPProxy proxy) {
+    public void play(PacketSource source) {
         try {
             hs = new HTTPStream();
-            proxy.addPacketListener(hs);
+            source.addPacketListener(hs);
             final int port = hs.getLocalPort();
             System.out.println("Streaming at http://localhost:" + port);
             EventQueue.invokeLater(new Runnable() {

@@ -1,4 +1,4 @@
-package com.hanhuy.hdhr.config;
+package com.hanhuy.hdhr.stream;
 
 import java.io.IOException;
 import java.net.SocketException;
@@ -8,7 +8,7 @@ import java.net.DatagramSocket;
 import java.net.DatagramPacket;
 import java.net.UnknownHostException;
 
-public class UDPStream implements RTPProxy.PacketListener {
+public class UDPStream implements PacketListener {
 
     private int remotePort;
     private DatagramSocket ds;
@@ -39,7 +39,7 @@ public class UDPStream implements RTPProxy.PacketListener {
         return ds == null;
     }
 
-    public void packetArrived(RTPProxy.PacketEvent e) throws IOException {
+    public void packetArrived(PacketEvent e) throws IOException {
         byte[] packet = e.packet;
         if (ds == null)
             return;

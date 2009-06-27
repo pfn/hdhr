@@ -1,6 +1,5 @@
-package com.hanhuy.hdhr.config;
+package com.hanhuy.hdhr.stream;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -12,12 +11,10 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Collections;
-import java.util.EventListener;
-import java.util.EventObject;
 import java.util.ArrayList;
 import java.util.Iterator;
 
-public class RTPProxy implements Runnable {
+public class RTPProxy implements Runnable, PacketSource {
     private DatagramChannel dc;
     private short rtp_sequence = (short) 0xffff;
     /**
@@ -180,7 +177,7 @@ public class RTPProxy implements Runnable {
     }
 
     private void firePacketEvent(byte[] packet) throws IOException {
-        PacketEvent e = new PacketEvent(packet);
+        PacketEvent e = new PacketEvent(this, packet);
         if (shutdown) return;
         synchronized (listeners) {
             for (Iterator<PacketListener> i = listeners.iterator();
@@ -208,19 +205,6 @@ public class RTPProxy implements Runnable {
     public void addPacketListener(PacketListener l) {
         synchronized (listeners) {
             listeners.add(l);
-        }
-    }
-
-    public interface PacketListener extends EventListener, Closeable {
-        public void packetArrived(PacketEvent e) throws IOException;
-        public boolean isClosed();
-    }
-
-    public class PacketEvent extends EventObject {
-        public final byte[] packet;
-        PacketEvent(byte[] packet) {
-            super(RTPProxy.this);
-            this.packet = packet;
         }
     }
 

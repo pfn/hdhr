@@ -3,7 +3,7 @@ package com.hanhuy.hdhr;
 import com.hanhuy.common.ui.ResourceBundleForm;
 import com.hanhuy.hdhr.av.VideoPlayer;
 import com.hanhuy.hdhr.av.VideoPlayerFactory;
-import com.hanhuy.hdhr.config.RTPProxy;
+import com.hanhuy.hdhr.stream.RTPProxy;
 import com.hanhuy.hdhr.config.Discover;
 import com.hanhuy.hdhr.config.Control;
 import com.hanhuy.hdhr.config.TunerException;
