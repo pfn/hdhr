@@ -5,6 +5,7 @@ import com.hanhuy.hdhr.treemodel.DeviceTreeModel;
 import com.hanhuy.hdhr.treemodel.Tuner;
 
 import com.hanhuy.hdhr.config.ChannelMap.Channel.Program;
+import com.hanhuy.hdhr.Preferences;
 
 import java.io.File;
 import java.io.IOException;
@@ -275,9 +276,13 @@ public class LineupServer {
     public int identifyPrograms(List<Program> programs)
     throws TunerLineupException {
         int count = 0;
+        Document request = null;
         try {
-            Document request = buildIdentifyDocument(programs);
+            request = buildIdentifyDocument(programs);
             Document response = fetch("IdentifyPrograms2", request);
+            if (Preferences.getInstance().programDebug)
+                System.out.println(toXMLString(response));
+
             for (Program p : programs) {
                 if (identifyProgram(response, p))
                     count++;
@@ -287,12 +292,14 @@ public class LineupServer {
             throw new IllegalStateException(e);
         }
         catch (IOException e) {
+            System.out.println(toXMLString(request));
             throw new TunerLineupException(e);
         }
         return count;
     }
 
     static String toXMLString(Document d) {
+        if (d == null) return null;
         try {
             TransformerFactory tf = TransformerFactory.newInstance();
             Transformer t = tf.newTransformer();
