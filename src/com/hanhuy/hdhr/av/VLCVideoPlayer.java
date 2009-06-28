@@ -166,9 +166,11 @@ public class VLCVideoPlayer implements VideoPlayer {
             vlc_args.add("--vout-event");
             vlc_args.add("3");
 
+            /*
             vlc_args.add("--ffmpeg-fast");
             vlc_args.add("--ffmpeg-skiploopfilter");
             vlc_args.add("all");
+            */
         } else {
             throw new VideoPlayerException(
                     "Unsupported VLC version: " + LIBVLC_VERSION);
