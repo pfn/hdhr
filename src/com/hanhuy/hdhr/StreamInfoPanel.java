@@ -110,11 +110,15 @@ public class StreamInfoPanel extends ResourceBundleForm {
 
     public void update(Tuner t, Program p) {
         RTPProxy proxy = ProgramCard.INSTANCE.getProxy();
-        if (proxy == null) {
+        if (proxy == null || p == null) {
             lastPacketCount = 0;
             lastByteCount   = 0;
             hide();
             return;
+        }
+        if (lastProgram != p) {
+            lastPacketCount = 0;
+            lastByteCount = 0;
         }
         lastTuner = t;
         lastProgram = p;
@@ -231,7 +235,8 @@ public class StreamInfoPanel extends ResourceBundleForm {
                 while (!shutdown && lastTuner != null) {
                     EventQueue.invokeLater(new Runnable() {
                         public void run() {
-                            update(lastTuner, lastProgram);
+                            update(lastTuner,
+                                    ProgramCard.INSTANCE.getProgram());
                         }
                     });
                     try {

@@ -41,10 +41,10 @@ implements TreeSelectionListener, ChangeListener {
     private boolean playing;
     private boolean mute;
 
-
     private Control device;
     private RTPProxy proxy;
     private final Canvas c;
+    private Program program;
 
     private int volume = DEFAULT_VOLUME;
 
@@ -62,7 +62,12 @@ implements TreeSelectionListener, ChangeListener {
                 VideoPlayerFactory.getVideoPlayer(defaultBackend));
     }
 
+    public Program getProgram() {
+        return program;
+    }
+
     private void setProgram(Tuner t, Program program) {
+        this.program = program;
         player.setSurface(c);
 
         device = new Control();
@@ -119,6 +124,7 @@ implements TreeSelectionListener, ChangeListener {
         stopPlayer(false);
     }
     void stopPlayer(boolean exiting) {
+        program = null;
         playing = false;
 
         if (device != null) {
