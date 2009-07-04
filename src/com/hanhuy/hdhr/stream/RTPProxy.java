@@ -33,9 +33,14 @@ public class RTPProxy implements Runnable, PacketSource {
 
     private volatile boolean shutdown;
 
-    private final static int TS_PACKET_SIZE = 188;
-    private final static int VIDEO_RTP_DATA_PACKET_SIZE = ((188 * 7) + 12);
-    private final static int VIDEO_DATA_PACKET_SIZE = (188 * 7);
+    public final static int TS_PACKET_PER_DATA_PACKET = 7;
+    final static int TS_PACKET_SIZE = 188;
+    private final static int RTP_OVERHEAD = 12;
+
+    final static int VIDEO_DATA_PACKET_SIZE =
+            TS_PACKET_SIZE * TS_PACKET_PER_DATA_PACKET;
+    private final static int VIDEO_RTP_DATA_PACKET_SIZE =
+            VIDEO_DATA_PACKET_SIZE + RTP_OVERHEAD;
 
     private Thread t;
 
@@ -123,6 +128,7 @@ public class RTPProxy implements Runnable, PacketSource {
             }
             catch (SocketTimeoutException e) {
                 // ignore, continue
+                e.printStackTrace();
                 continue;
             }
             buf.flip();
