@@ -35,10 +35,12 @@ public class VideoPlayerFactory {
     public static String[] getVideoPlayerNames() {
         ArrayList<String> names = new ArrayList<String>();
         if (VLCVideoPlayer.isAvailable()) {
+            /*
             if (!Platform.isMac()) {
                 names.add(BACKEND_VLC_EXTERNAL_UDP);
                 names.add(BACKEND_VLC_EXTERNAL_HTTP);
             }
+            */
             names.add(BACKEND_VLC);
         }
 
