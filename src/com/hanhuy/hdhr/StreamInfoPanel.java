@@ -84,6 +84,7 @@ public class StreamInfoPanel extends ResourceBundleForm {
         }
         showing = true;
         d = new JDialog(Main.frame, "Stream Info");
+        d.setAlwaysOnTop(false);
         d.add(panel);
 
         stopThread();

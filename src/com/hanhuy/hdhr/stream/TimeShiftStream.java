@@ -34,16 +34,18 @@ implements PacketSource, PacketListener, Runnable {
     private long[] pcr    = { -1, -1 };
     private int[]  pcrpos = { -1, -1 };
 
+    private ArrayList<TimeShiftListener> tsListeners =
+            new ArrayList<TimeShiftListener>();
     private ArrayList<PacketListener> listeners =
             new ArrayList<PacketListener>();
 
     public TimeShiftStream() {
         outbuffer = new VideoDataPacketRingBuffer(2 * 1024 * 1024);
         try {
-            File tsbuf = new File(System.getProperty("java.io.tmpdir"), "test.ts");
+            File tsbuf = new File(System.getProperty("user.home"), ".hdhrb-timeshift-buffer.ts");
             tsbuf.deleteOnExit();
             inbuffer = new TimeShiftRingBuffer(this,
-                    tsbuf, 256 * 1024 * 1024);
+                    tsbuf, 2L * 1024 * 1024 * 1024);
         }
         catch (IOException e) {
             throw new IllegalStateException(e);
@@ -141,14 +143,19 @@ implements PacketSource, PacketListener, Runnable {
         return shutdown;
     }
 
+    public boolean isRealTime() {
+        return realtime;
+    }
     public synchronized void close() throws IOException {
         shutdown = true;
         notify();
-        for (Iterator<PacketListener> i = listeners.iterator();
-                i.hasNext();) {
-            PacketListener l = i.next();
-            l.close();
-            i.remove();
+        synchronized (listeners) {
+            for (Iterator<PacketListener> i = listeners.iterator();
+                    i.hasNext();) {
+                PacketListener l = i.next();
+                l.close();
+                i.remove();
+            }
         }
         inbuffer.close();
     }
@@ -156,6 +163,33 @@ implements PacketSource, PacketListener, Runnable {
     public void addPacketListener(PacketListener l) {
         synchronized (listeners) {
             listeners.add(l);
+        }
+    }
+
+    public void addTimeShiftListener(TimeShiftListener l) {
+        synchronized (tsListeners) {
+            tsListeners.add(l);
+        }
+    }
+
+    private void fireTimeShiftEvent(TimeShiftEvent e) {
+        if (shutdown) return;
+
+        for (TimeShiftListener l : tsListeners) {
+            switch (e.type) {
+            case PAUSE:
+                l.timePaused(e);
+                break;
+            case RESUME:
+                l.timeResumed(e);
+                break;
+            case SHIFT:
+                l.timeShifted(e);
+                break;
+            default:
+                throw new IllegalArgumentException(
+                        e.type == null ? "null type" : e.type.toString());
+            }
         }
     }
 
@@ -201,7 +235,13 @@ implements PacketSource, PacketListener, Runnable {
      * @return actual number of seconds shifted
      */
     public synchronized int shift(int seconds) {
-        System.out.println("**** SHIFTING!");
+        long oldpcr = outPCR;
+        long newpcr = seek(outPCR + (seconds * 27000000));
+        return (int) Math.round((double) (newpcr - oldpcr) / 27000000);
+    }
+
+    public synchronized long seek(long targetpcr) {
+        System.out.println("**** SEEKING!");
         paused   = true;
         realtime = false;
         notify();
@@ -215,11 +255,10 @@ implements PacketSource, PacketListener, Runnable {
         }
         synchronized (outbuffer) {
 
-            long oldpcr = outPCR;
-            long newpcr = inbuffer.seek(outPCR + (seconds * 27000000));
+            long newpcr = inbuffer.seek(targetpcr);
             if (newpcr == -1) {
                 now();
-                return (int) (inPCR - oldpcr) / 27000000;
+                return inPCR;
             }
             pcrpos[0] = pcrpos[1] = -1;
             outbuffer.clear();
@@ -227,7 +266,9 @@ implements PacketSource, PacketListener, Runnable {
             paused = false;
             notify();
 
-            return (int) Math.round((double) (newpcr - oldpcr) / 27000000);
+            fireTimeShiftEvent(
+                    new TimeShiftEvent(this, TimeShiftEvent.EventType.SHIFT));
+            return newpcr;
         }
     }
 
@@ -243,18 +284,51 @@ implements PacketSource, PacketListener, Runnable {
             realtime = false;
             notify();
         }
+        fireTimeShiftEvent(
+                new TimeShiftEvent(this, TimeShiftEvent.EventType.PAUSE));
     }
 
     public synchronized void resume() {
         System.out.println("**** RESUMING!");
         paused = false;
         notify();
+        fireTimeShiftEvent(
+                new TimeShiftEvent(this, TimeShiftEvent.EventType.RESUME));
+    }
+
+    public synchronized void base() {
+        paused   = true;
+        realtime = false;
+        notify();
+        while (!pausing) {
+            try {
+                wait();
+            }
+            catch (InterruptedException e) {
+                if (shutdown) break;
+            }
+        }
+        synchronized (outbuffer) {
+            inbuffer.seek(inbuffer.getStartPCR());
+            pcrpos[0] = pcrpos[1] = -1;
+            outbuffer.clear();
+
+            paused = false;
+            notify();
+
+            fireTimeShiftEvent(
+                    new TimeShiftEvent(this, TimeShiftEvent.EventType.SHIFT));
+        }
     }
 
     public synchronized void now() {
+        if (realtime) return;
+
         realtime = true;
         paused   = false;
         notify();
+        fireTimeShiftEvent(
+                new TimeShiftEvent(this, TimeShiftEvent.EventType.SHIFT));
     }
 
     private boolean fillBuffer(TimeShiftRingBuffer in,
@@ -335,7 +409,7 @@ implements PacketSource, PacketListener, Runnable {
                 usRate -= elapsed; // only sleep enough to parity with pcr
 
                 if (usRate > 0)
-                    sleep(usRate / 1000, usRate % 1000);
+                    sleep(usRate);
 
                 pcrpos[0]--;
                 pcrpos[1]--;
@@ -351,9 +425,9 @@ implements PacketSource, PacketListener, Runnable {
         tspacket.set(null);
     }
 
-    private void sleep(long ms, int us) {
+    private void sleep(long us) {
         try {
-            Thread.sleep(ms, us * 1000);
+            Thread.sleep(us / 1000, (int) (us % 1000) * 1000);
         }
         catch (InterruptedException e) {
             e.printStackTrace();
@@ -363,5 +437,17 @@ implements PacketSource, PacketListener, Runnable {
     @Override
     public String toString() {
         return listeners.toString();
+    }
+
+    public long getCurrentPCR() {
+        return outPCR;
+    }
+
+    public long getStartPCR() {
+        return inbuffer.getStartPCR();
+    }
+
+    public long getInputPCR() {
+        return inPCR;
     }
 }

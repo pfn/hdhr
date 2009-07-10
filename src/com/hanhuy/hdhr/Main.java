@@ -22,10 +22,10 @@ import com.hanhuy.hdhr.ui.ProgressAwareRunnable;
 import com.hanhuy.hdhr.ui.ProgressBar;
 import com.hanhuy.hdhr.ui.ProgressDialog;
 import com.hanhuy.hdhr.ui.RunnableAction;
-import com.hanhuy.hdhr.Actions.Name;
 
 import java.beans.PropertyEditorManager;
 import java.io.IOException;
+import java.awt.Component;
 import java.awt.Point;
 import java.awt.Font;
 import java.awt.CardLayout;
@@ -54,6 +54,7 @@ import java.util.Properties;
 import java.util.UUID;
 import java.util.Arrays;
 
+import javax.swing.JButton;
 import javax.swing.JList;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.ToolTipManager;
@@ -123,6 +124,7 @@ public class Main extends ResourceBundleForm implements Runnable {
 
     Main() {
         Actions.init(this);
+        TimeShiftActions.init(this);
     }
 
     private static void setConsole() {
@@ -158,18 +160,18 @@ public class Main extends ResourceBundleForm implements Runnable {
 
         menu = new JMenu(getString("fileMenuTitle"));
         menu.setMnemonic(getChar("fileMenuMnemonic"));
-        menu.add(Actions.getAction(Name.DISCOVER));
-        menu.add(Actions.getAction(Name.EXIT));
+        menu.add(Actions.getAction(Actions.Name.DISCOVER));
+        menu.add(Actions.getAction(Actions.Name.EXIT));
         menubar.add(menu);
 
         menu = new JMenu(getString("viewMenuTitle"));
         menu.setMnemonic(getChar("viewMenuMnemonic"));
 
-        menu.add(Actions.getAction(Name.INCREASE_FONT_SIZE));
-        menu.add(Actions.getAction(Name.RESET_FONT_SIZE));
-        menu.add(Actions.getAction(Name.DECREASE_FONT_SIZE));
+        menu.add(Actions.getAction(Actions.Name.INCREASE_FONT_SIZE));
+        menu.add(Actions.getAction(Actions.Name.RESET_FONT_SIZE));
+        menu.add(Actions.getAction(Actions.Name.DECREASE_FONT_SIZE));
         menu.addSeparator();
-        menu.add(Actions.getAction(Name.SHOW_CONSOLE));
+        menu.add(Actions.getAction(Actions.Name.SHOW_CONSOLE));
         final JCheckBoxMenuItem debugItem = new JCheckBoxMenuItem();
         boolean pDebug = Preferences.getInstance().programDebug;
         if (pDebug) {
@@ -192,22 +194,22 @@ public class Main extends ResourceBundleForm implements Runnable {
 
         menu = new JMenu(getString("tunerMenuTitle"));
         menu.setMnemonic(getChar("tunerMenuMnemonic"));
-        menu.add(Actions.getAction(Name.UNLOCK_TUNER));
-        menu.add(Actions.getAction(Name.UNSET_TARGET));
-        menu.add(Actions.getAction(Name.UNSET_CHANNEL));
+        menu.add(Actions.getAction(Actions.Name.UNLOCK_TUNER));
+        menu.add(Actions.getAction(Actions.Name.UNSET_TARGET));
+        menu.add(Actions.getAction(Actions.Name.UNSET_CHANNEL));
         menu.addSeparator();
-        menu.add(Actions.getAction(Name.CLEAR_LINEUP));
-        menu.add(Actions.getAction(Name.SCAN));
-        menu.add(Actions.getAction(Name.MATCH_LINEUP));
-        menu.add(Actions.getAction(Name.EDIT_LINEUP));
-        menu.add(Actions.getAction(Name.COPY_LINEUP));
+        menu.add(Actions.getAction(Actions.Name.CLEAR_LINEUP));
+        menu.add(Actions.getAction(Actions.Name.SCAN));
+        menu.add(Actions.getAction(Actions.Name.MATCH_LINEUP));
+        menu.add(Actions.getAction(Actions.Name.EDIT_LINEUP));
+        menu.add(Actions.getAction(Actions.Name.COPY_LINEUP));
         menubar.add(menu);
 
         menu = new JMenu(getString("programMenuTitle"));
         menu.setMnemonic(getChar("programMenuMnemonic"));
-        menu.add(Actions.getAction(Name.STREAM_INFO));
-        menu.add(Actions.getAction(Name.EDIT_PROGRAM));
-        menu.add(Actions.getAction(Name.JUMP_TO_LAST_PROGRAM));
+        menu.add(Actions.getAction(Actions.Name.STREAM_INFO));
+        menu.add(Actions.getAction(Actions.Name.EDIT_PROGRAM));
+        menu.add(Actions.getAction(Actions.Name.JUMP_TO_LAST_PROGRAM));
 
         menubar.add(menu);
 
@@ -248,7 +250,7 @@ public class Main extends ResourceBundleForm implements Runnable {
         menu = new JMenu(getString("helpMenuTitle"));
         menu.setMnemonic(getChar("helpMenuMnemonic"));
 
-        menu.add(Actions.getAction(Name.ABOUT));
+        menu.add(Actions.getAction(Actions.Name.ABOUT));
         menubar.add(menu);
     }
 
@@ -308,6 +310,7 @@ public class Main extends ResourceBundleForm implements Runnable {
             }
         });
         tree.addTreeSelectionListener(Actions.getInstance());
+        tree.addTreeSelectionListener(TimeShiftActions.getInstance());
         tree.addTreeSelectionListener(l);
         tree.addTreeSelectionListener(TunerInfoCard.INSTANCE);
         tree.addTreeSelectionListener(DeviceInfoCard.INSTANCE);
@@ -356,19 +359,63 @@ public class Main extends ResourceBundleForm implements Runnable {
         JPanel topPane = new JPanel();
         topPane.setLayout(new BoxLayout(topPane, BoxLayout.X_AXIS));
 
-        /*
         JToolBar bar = new JToolBar();
         bar.setFloatable(false);
-        bar.add(new RunnableAction("Test", new Runnable() {
-            int i = 0;
-            public void run() {
-                System.out.println("OOH! " + i++);
-            }
-        }));
-        topPane.add(bar);
-        */
+        bar.add(TimeShiftActions.getAction(TimeShiftActions.Name.PAUSE_RESUME));
+        bar.add(TimeShiftActions.getAction(TimeShiftActions.Name.SHIFT_START));
+        bar.add(TimeShiftActions.getAction(TimeShiftActions.Name.REWIND_LONG));
+        bar.add(TimeShiftActions.getAction(TimeShiftActions.Name.REWIND_SHORT));
+        bar.add(TimeShiftActions.getAction(
+                TimeShiftActions.Name.FORWARD_SHORT));
+        bar.add(TimeShiftActions.getAction(TimeShiftActions.Name.FORWARD_LONG));
+        bar.add(TimeShiftActions.getAction(TimeShiftActions.Name.SHIFT_END));
 
-        topPane.add(Box.createHorizontalGlue());
+        final JSlider timeslider = new JSlider(new DefaultBoundedRangeModel(
+                10000, 0, 0, 10000)) {
+            {
+                MouseListener[] listeners = getMouseListeners();
+                for (MouseListener l : listeners)
+                    removeMouseListener(l);
+                final BasicSliderUI ui = (BasicSliderUI) getUI();
+                BasicSliderUI.TrackListener tl =
+                        ui.new TrackListener() {
+                    @Override public void mouseClicked(MouseEvent e) {
+                        if (!isEnabled()) return;
+                        Point p = e.getPoint();
+                        final int value = ui.valueForXPosition(p.x);
+
+                        setValue(value);
+                    }
+                    @Override public boolean shouldScroll(int dir) {
+                        return false;
+                    }
+                };
+                addMouseListener(tl);
+            }
+            @Override
+            public String getToolTipText(MouseEvent e) {
+                return TimeShiftActions.getInstance().getToolTipText(e);
+            }
+            @Override
+            public Point getToolTipLocation(MouseEvent e) {
+                Point p = e.getPoint();
+                p.x -= 25;
+                p.y -= 25;
+                return p;
+            }
+        };
+        bar.add(timeslider);
+        bar.add(Box.createHorizontalStrut(5));
+        JButton b = bar.add(
+                TimeShiftActions.getAction(TimeShiftActions.Name.STOP));
+        topPane.add(bar);
+        ToolTipManager.sharedInstance().registerComponent(timeslider);
+        TimeShiftActions.getInstance().setTimeSlider(timeslider);
+        timeslider.addChangeListener(TimeShiftActions.getInstance());
+
+
+        //topPane.add(Box.createHorizontalGlue());
+        topPane.add(Box.createHorizontalStrut(20));
 
         boolean mute = Preferences.getInstance().muting;
         ProgramCard.INSTANCE.setMute(mute);
@@ -511,22 +558,22 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
 
     TreePopupListener() {
         tunerMenu = new JPopupMenu();
-        tunerMenu.add(Actions.getAction(Name.UNLOCK_TUNER));
-        tunerMenu.add(Actions.getAction(Name.UNSET_TARGET));
-        tunerMenu.add(Actions.getAction(Name.UNSET_CHANNEL));
+        tunerMenu.add(Actions.getAction(Actions.Name.UNLOCK_TUNER));
+        tunerMenu.add(Actions.getAction(Actions.Name.UNSET_TARGET));
+        tunerMenu.add(Actions.getAction(Actions.Name.UNSET_CHANNEL));
         tunerMenu.addSeparator();
-        tunerMenu.add(Actions.getAction(Name.CLEAR_LINEUP));
-        tunerMenu.add(Actions.getAction(Name.SCAN));
-        tunerMenu.add(Actions.getAction(Name.MATCH_LINEUP));
-        tunerMenu.add(Actions.getAction(Name.EDIT_LINEUP));
-        tunerMenu.add(Actions.getAction(Name.COPY_LINEUP));
+        tunerMenu.add(Actions.getAction(Actions.Name.CLEAR_LINEUP));
+        tunerMenu.add(Actions.getAction(Actions.Name.SCAN));
+        tunerMenu.add(Actions.getAction(Actions.Name.MATCH_LINEUP));
+        tunerMenu.add(Actions.getAction(Actions.Name.EDIT_LINEUP));
+        tunerMenu.add(Actions.getAction(Actions.Name.COPY_LINEUP));
 
         rootMenu = new JPopupMenu();
-        rootMenu.add(Actions.getAction(Name.DISCOVER));
+        rootMenu.add(Actions.getAction(Actions.Name.DISCOVER));
 
         programMenu = new JPopupMenu();
-        programMenu.add(Actions.getAction(Name.STREAM_INFO));
-        programMenu.add(Actions.getAction(Name.EDIT_PROGRAM));
+        programMenu.add(Actions.getAction(Actions.Name.STREAM_INFO));
+        programMenu.add(Actions.getAction(Actions.Name.EDIT_PROGRAM));
     }
     public void valueChanged(TreeSelectionEvent e) {
         value = e.getPath().getLastPathComponent();

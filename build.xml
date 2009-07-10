@@ -103,7 +103,7 @@
       <param name="src" value="${build.dir}/hdhr-resources.jar"/>
     </antcall>
     <antcall target="signjar">
-      <param name="src" value="/home/pfnguyen/vlc-win32-1.0.0rc4.jar"/>
+      <param name="src" value="/home/pfnguyen/vlc-win32-1.0.0.jar"/>
     </antcall>
     <antcall target="signjar">
       <param name="src" value="/home/pfnguyen/vlc-osx-1.0.0rc3.jar"/>

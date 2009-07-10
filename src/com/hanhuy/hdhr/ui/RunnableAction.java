@@ -11,15 +11,19 @@ public class RunnableAction extends AbstractAction implements Action {
 
     protected Runnable r;
     public RunnableAction(String name, Runnable action) {
-        this(name, null, null, -1, null, null, action);
+        this(name, name, name, -1, null, null, action);
     }
     public RunnableAction(String name,
             int mnemonic_vk, Runnable action) {
-        this(name, null, null, mnemonic_vk, null, null, action);
+        this(name, name, name, mnemonic_vk, null, null, action);
     }
     public RunnableAction(String name,
             int mnemonic_vk, String accelerator, Runnable action) {
-        this(name, null, null, mnemonic_vk, accelerator, null, action);
+        this(name, name, name, mnemonic_vk, accelerator, null, action);
+    }
+    public RunnableAction(String name,
+            int mnemonic_vk, String accelerator, Icon icon, Runnable action) {
+        this(name, name, name, mnemonic_vk, accelerator, icon, action);
     }
     public RunnableAction(String name, String shortDesc, String description,
             int mnemonic_vk, String accelerator, Icon icon, Runnable action) {

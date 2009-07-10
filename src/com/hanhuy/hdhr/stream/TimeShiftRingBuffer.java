@@ -19,6 +19,8 @@ public class TimeShiftRingBuffer {
     private ByteBuffer readBuffer;
     private ByteBuffer writeBuffer;
 
+    private boolean closed;
+
     private final static int _TMP_BUFFER_SIZE = 64 * 1024 * 1024;
 
     public final static long SEEK_NOW = -1;
@@ -60,7 +62,7 @@ public class TimeShiftRingBuffer {
             int p = writeBuffer.position();
             writeBuffer.limit(p + RTPProxy.VIDEO_DATA_PACKET_SIZE);
 
-            long pcr = ts.processPacket(writeBuffer, false, false);
+            long pcr = ts.processPacket(writeBuffer.slice(), false, false);
             if (pcr != -1)
                 basepcr = pcr;
 
@@ -93,7 +95,7 @@ public class TimeShiftRingBuffer {
     }
 
     private void mapWriteBuffer() {
-        while (writeBuffer == null) {
+        while (writeBuffer == null && !closed) {
             try {
                 if (offset == -1)
                     offset = 0;
@@ -102,14 +104,14 @@ public class TimeShiftRingBuffer {
                         offset, BUFFER_SIZE);
             }
             catch (IOException e) {
-                System.out.println("Unable to map write buffer, retrying: " +
-                        e.getMessage());
+                System.out.println("Unable to map write buffer, retrying");
+                e.printStackTrace();
             }
         }
     }
 
     private void mapReadBuffer() {
-        while (readBuffer == null) {
+        while (readBuffer == null && !closed) {
             try {
                 if (read_offset == -1)
                     read_offset = 0;
@@ -118,8 +120,8 @@ public class TimeShiftRingBuffer {
                         read_offset, BUFFER_SIZE);
             }
             catch (IOException e) {
-                System.out.println("Unable to map read buffer, retrying: " +
-                        e.getMessage());
+                System.out.println("Unable to map read buffer, retrying");
+                e.printStackTrace();
             }
         }
     }
@@ -231,6 +233,7 @@ public class TimeShiftRingBuffer {
     }
 
     public void close() {
+        boolean closed = true;
         try {
             c.close();
         }
@@ -241,6 +244,9 @@ public class TimeShiftRingBuffer {
 
     public void setStartPCR(long pcr) {
         basepcr = pcr;
+    }
+    public long getStartPCR() {
+        return basepcr;
     }
     public void setCurrentPCR(long pcr) {
         nowpcr = pcr;

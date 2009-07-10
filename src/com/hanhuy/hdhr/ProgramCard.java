@@ -3,7 +3,10 @@ package com.hanhuy.hdhr;
 import com.hanhuy.common.ui.ResourceBundleForm;
 import com.hanhuy.hdhr.av.VideoPlayer;
 import com.hanhuy.hdhr.av.VideoPlayerFactory;
+import com.hanhuy.hdhr.stream.PacketSource;
 import com.hanhuy.hdhr.stream.RTPProxy;
+import com.hanhuy.hdhr.stream.TimeShiftStream;
+import com.hanhuy.hdhr.stream.TimeShiftListener;
 import com.hanhuy.hdhr.config.Discover;
 import com.hanhuy.hdhr.config.Control;
 import com.hanhuy.hdhr.config.TunerException;
@@ -47,6 +50,9 @@ implements TreeSelectionListener, ChangeListener {
     private Program program;
 
     private int volume = DEFAULT_VOLUME;
+
+    private TimeShiftStream ts;
+    private boolean tsEnabled = true; // TODO testing, setup preferences
 
     private ProgramCard() {
         card = new JPanel();
@@ -104,7 +110,16 @@ implements TreeSelectionListener, ChangeListener {
             return;
         }
         player.setVolume(volume);
-        player.play(proxy);
+
+        PacketSource src = proxy;
+        tsEnabled = player instanceof TimeShiftListener;
+        if (tsEnabled) {
+            ts = new TimeShiftStream();
+            proxy.addPacketListener(ts);
+            src = ts;
+        }
+
+        player.play(src);
 
         playing = true;
         Main.cards.show(Main.cardPane, CARD_NAME);
@@ -126,6 +141,7 @@ implements TreeSelectionListener, ChangeListener {
     void stopPlayer(boolean exiting) {
         program = null;
         playing = false;
+        ts      = null;
 
         if (device != null) {
             try {
@@ -212,5 +228,13 @@ implements TreeSelectionListener, ChangeListener {
 
     public boolean isPlaying() {
         return playing;
+    }
+
+    public boolean isTimeShiftEnabled() {
+        return tsEnabled;
+    }
+
+    public TimeShiftStream getTimeShiftStream() {
+        return ts;
     }
 }

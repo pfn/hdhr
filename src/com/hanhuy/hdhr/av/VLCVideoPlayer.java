@@ -2,6 +2,9 @@ package com.hanhuy.hdhr.av;
 
 import com.hanhuy.hdhr.stream.PacketSource;
 import com.hanhuy.hdhr.stream.UDPStream;
+import com.hanhuy.hdhr.stream.TimeShiftListener;
+import com.hanhuy.hdhr.stream.TimeShiftStream;
+import com.hanhuy.hdhr.stream.TimeShiftEvent;
 
 import java.awt.Component;
 import java.util.ArrayList;
@@ -19,7 +22,7 @@ import com.sun.jna.Native;
 import com.sun.jna.Platform;
 import com.sun.jna.Pointer;
 
-public class VLCVideoPlayer implements VideoPlayer {
+public class VLCVideoPlayer implements VideoPlayer, TimeShiftListener {
     private UDPStream us;
 
     private final static int VLC_VOLUME_MAX = 200;
@@ -104,6 +107,8 @@ public class VLCVideoPlayer implements VideoPlayer {
 
 
     public void play(PacketSource source) {
+        if (source instanceof TimeShiftStream)
+            ((TimeShiftStream)source).addTimeShiftListener(this);
         try {
             us = new UDPStream();
             source.addPacketListener(us);
@@ -298,6 +303,27 @@ public class VLCVideoPlayer implements VideoPlayer {
         if (player != null) {
             stop();
             play(lastUri);
+        }
+    }
+
+    public void timePaused(TimeShiftEvent e) {
+    }
+    public void timeResumed(TimeShiftEvent e) {
+        if (player != null) {
+            libvlc_exception_t ex = new libvlc_exception_t();
+            libvlc.libvlc_media_player_stop(player, ex);
+            throwError(ex);
+            libvlc.libvlc_media_player_play(player, ex);
+            throwError(ex);
+        }
+    }
+    public void timeShifted(TimeShiftEvent e) {
+        if (player != null) {
+            libvlc_exception_t ex = new libvlc_exception_t();
+            libvlc.libvlc_media_player_stop(player, ex);
+            throwError(ex);
+            libvlc.libvlc_media_player_play(player, ex);
+            throwError(ex);
         }
     }
 }
