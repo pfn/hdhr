@@ -54,7 +54,6 @@ import java.util.Properties;
 import java.util.UUID;
 import java.util.Arrays;
 
-import javax.swing.JButton;
 import javax.swing.JList;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.ToolTipManager;
@@ -406,8 +405,7 @@ public class Main extends ResourceBundleForm implements Runnable {
         };
         bar.add(timeslider);
         bar.add(Box.createHorizontalStrut(5));
-        JButton b = bar.add(
-                TimeShiftActions.getAction(TimeShiftActions.Name.STOP));
+        bar.add(TimeShiftActions.getAction(TimeShiftActions.Name.STOP));
         topPane.add(bar);
         ToolTipManager.sharedInstance().registerComponent(timeslider);
         TimeShiftActions.getInstance().setTimeSlider(timeslider);

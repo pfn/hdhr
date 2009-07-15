@@ -29,6 +29,8 @@ implements PacketSource, PacketListener, Runnable {
     private boolean hasVideo;
     private boolean hasAudio;
 
+    private int unslept;
+
     private Map<Short,Short> pat;
 
     private long[] pcr    = { -1, -1 };
@@ -369,8 +371,9 @@ implements PacketSource, PacketListener, Runnable {
                 while ((paused || realtime) && !shutdown) {
                     try {
                         if (paused && totalpcr != 0)
-                            System.out.printf("TS lag: %dus\n",
-                                    totalus - totalpcr);
+                            System.out.printf(
+                                   "TS lag: %dus, skipped sleep: %d\n",
+                                   totalus - totalpcr, unslept);
                         if (paused)
                             pausing = true;
                         notify();
@@ -387,6 +390,7 @@ implements PacketSource, PacketListener, Runnable {
             int _usRate  = 0; // no delay until pcr is in the first slot
             totalus  = 0;
             totalpcr = 0;
+            unslept  = 0;
 
             while (!realtime && !paused && !shutdown) {
                 long ns = System.nanoTime();
@@ -408,11 +412,14 @@ implements PacketSource, PacketListener, Runnable {
 
                 usRate -= elapsed; // only sleep enough to parity with pcr
 
-                if (usRate > 0)
+                if (usRate > 0) {
                     sleep(usRate);
+                } else {
+                    ++unslept;
+                }
 
-                pcrpos[0]--;
-                pcrpos[1]--;
+                --pcrpos[0];
+                --pcrpos[1];
 
                 totalus += (System.nanoTime() - ns) / 1000;
 

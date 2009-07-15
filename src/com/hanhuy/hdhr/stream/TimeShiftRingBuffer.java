@@ -5,8 +5,9 @@ import java.io.RandomAccessFile;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 
-public class TimeShiftRingBuffer {
+public class TimeShiftRingBuffer implements Runnable {
     private long offset = -1;   // physical position, position % size
     private long read_offset = -1;
     private final long size;
@@ -19,13 +20,15 @@ public class TimeShiftRingBuffer {
     private ByteBuffer readBuffer;
     private ByteBuffer writeBuffer;
 
-    private boolean closed;
+    private volatile boolean closed;
 
     private final static int _TMP_BUFFER_SIZE = 64 * 1024 * 1024;
 
     public final static long SEEK_NOW = -1;
 
     private final TimeShiftStream ts;
+
+    private ArrayList<ByteBuffer> unmapQueue = new ArrayList<ByteBuffer>();
 
     public final static int BUFFER_SIZE = _TMP_BUFFER_SIZE -
             (_TMP_BUFFER_SIZE % RTPProxy.VIDEO_DATA_PACKET_SIZE);
@@ -43,6 +46,8 @@ public class TimeShiftRingBuffer {
         }
         c = raf.getChannel();
         this.ts = ts;
+        Thread t = new Thread(this, "TimeShiftRingBuffer.unmap");
+        t.start();
     }
 
     public void add(byte[] packet) {
@@ -102,6 +107,9 @@ public class TimeShiftRingBuffer {
                 writeBuffer = c.map(
                         FileChannel.MapMode.READ_WRITE,
                         offset, BUFFER_SIZE);
+                System.out.printf(
+                        "Mapped new write buffer at 0x%08x PCR: %.3f\n",
+                        offset, (double) nowpcr / 27000000);
             }
             catch (IOException e) {
                 System.out.println("Unable to map write buffer, retrying");
@@ -176,7 +184,6 @@ public class TimeShiftRingBuffer {
             if (wrapped)
                 roff = ((long) (size * r) + offset + writeBuffer.position()) % size;
 
-            long lpcr = -1;
             roff -= roff % BUFFER_SIZE;
 
             System.out.printf("Estimating TS at 0x%x, currently at 0x%x\n", roff, read_offset);
@@ -188,52 +195,91 @@ public class TimeShiftRingBuffer {
             } else {
                 readBuffer.position(0);
             }
-
-            int l = readBuffer.limit();
-            while (readBuffer.remaining() >
-                    RTPProxy.VIDEO_DATA_PACKET_SIZE) {
-
-                int rpos = readBuffer.position();
-                readBuffer.limit(rpos + RTPProxy.VIDEO_DATA_PACKET_SIZE);
-
-                long p = ts.processPacket(readBuffer.slice(), false, false);
-                try {
-                    if (p != -1) {
-                        if (lpcr == -1) {
-                            if (p <= pcr) {
-                                lpcr = p;
-                            } else {
-                                // our estimate is off, the first pcr found is
-                                // higher than what we're looking for
-                                System.out.printf("unsupported p > pcr: %.3f > %.3f\n", (double) p / 27000000, (double) pcr / 27000000);
-                                pcr = p;
-                                break;
-                            }
-                        }
-                        if (p > pcr && lpcr < pcr) {
-                            lpcr = p;
-                            pcr = lpcr;
-                            break;
-                        }
-                        if (p < pcr) {
-                            lpcr = p;
-                        }
-                    }
+            int count = 0;
+            long desiredpcr = pcr;
+            do {
+                count++;
+                pcr = findPCR(readBuffer, desiredpcr, count < 2);
+                if (pcr == -1) { // seek forward
+                    System.out.println("Seeking forward");
+                    read_offset += BUFFER_SIZE;
+                    unmap(readBuffer);
+                    readBuffer = null;
+                    mapReadBuffer();
+                } else if (pcr == -2) { // seek backward
+                    System.out.println("Seeking backward");
+                    read_offset -= BUFFER_SIZE;
+                    unmap(readBuffer);
+                    readBuffer = null;
+                    mapReadBuffer();
                 }
-                finally {
-                    readBuffer.limit(l);
-                    readBuffer.position(rpos +
-                            RTPProxy.VIDEO_DATA_PACKET_SIZE);
-                }
-            }
-            pcr = lpcr;
+
+            } while (pcr < 0);
         }
         System.out.printf("SEEK: %.3f\n", (double) pcr / 27000000);
         return pcr;
     }
 
+    private long findPCR(ByteBuffer b, long pcr, boolean willseek) {
+
+        long lpcr = -1;
+        int l = b.limit();
+        boolean pcrfound = false;
+        while (b.remaining() >
+                RTPProxy.VIDEO_DATA_PACKET_SIZE) {
+
+            int rpos = b.position();
+            b.limit(rpos + RTPProxy.VIDEO_DATA_PACKET_SIZE);
+
+            long p = ts.processPacket(b.slice(), false, false);
+            try {
+                if (p != -1) {
+                    if (lpcr == -1) {
+                        if (p <= pcr) {
+                            lpcr = p;
+                        } else {
+                            // our estimate is off, the first pcr found is
+                            // higher than what we're looking for
+                            // seek backwards
+                            System.out.printf("Desired time not found, should seek backward p > pcr: %.3f > %.3f\n", (double) p / 27000000, (double) pcr / 27000000);
+                            lpcr = p;
+                            if (willseek)
+                                return -2;
+                            break;
+                        }
+                    }
+                    if (p > pcr && lpcr < pcr) {
+                        lpcr = p;
+                        pcr = lpcr;
+                        pcrfound = true;
+                        break;
+                    }
+                    if (p < pcr) {
+                        lpcr = p;
+                    }
+                }
+            }
+            finally {
+                b.limit(l);
+                b.position(rpos +
+                        RTPProxy.VIDEO_DATA_PACKET_SIZE);
+            }
+        }
+        if (!pcrfound) {
+            System.out.println(
+                    "Desired time not found, should seek forward");
+            if (willseek)
+                return -1;
+        }
+        pcr = lpcr;
+        return pcr;
+    }
+
     public void close() {
-        boolean closed = true;
+        synchronized (this) {
+            closed = true;
+            notify();
+        }
         try {
             c.close();
         }
@@ -252,10 +298,17 @@ public class TimeShiftRingBuffer {
         nowpcr = pcr;
     }
 
+    private void unmap(ByteBuffer buffer) {
+        if (buffer == null) return;
+        synchronized (unmapQueue) {
+            unmapQueue.add(buffer);
+        }
+    }
+
     /**
      * Oh!  This is so bad...  MappedByteBuffer has no way to unmap, do this.
      */
-    private void unmap(ByteBuffer buffer) {
+    private void _unmap(ByteBuffer buffer) {
         if (buffer == null) return;
         try {
             java.lang.reflect.Method m = buffer.getClass().getMethod("cleaner");
@@ -270,6 +323,28 @@ public class TimeShiftRingBuffer {
             if (e instanceof RuntimeException)
                 throw (RuntimeException) e;
             throw new IllegalStateException(e);
+        }
+    }
+
+    public synchronized void run() {
+        while (!closed) {
+
+            ArrayList<ByteBuffer> queue = null;
+            synchronized (unmapQueue) {
+                if (unmapQueue.size() > 0) {
+                    queue = new ArrayList<ByteBuffer>(unmapQueue);
+                    unmapQueue.clear();
+                }
+            }
+
+            if (queue != null) {
+                for (ByteBuffer b : queue)
+                    _unmap(b);
+            }
+            try {
+                wait(60 * 1000);
+            }
+            catch (InterruptedException e) { }
         }
     }
 }
