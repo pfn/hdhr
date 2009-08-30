@@ -261,8 +261,20 @@ public class ChannelScan {
                 System.out.println("No available programs found");
             }
         });
+
         c.unlock();
         c.close();
+
+        List<ChannelMap.Channel> channels =
+                ChannelMap.forName("us-cable").getChannels();
+
+        for (ChannelMap.Channel ch : channels) {
+            if (ch.getPrograms().size() > 0) {
+                for (ChannelMap.Channel.Program p : ch.getPrograms())
+                    System.out.println(p);
+            }
+        }
+
     }
 
     public static class ScanEvent extends EventObject {
