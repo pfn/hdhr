@@ -188,6 +188,24 @@ public class Main extends ResourceBundleForm implements Runnable {
         });
         debugItem.setAction(debugAction);
         menu.add(debugItem);
+        menu.addSeparator();
+        final JCheckBoxMenuItem alwaysTopItem = new JCheckBoxMenuItem();
+        boolean alwaysTop = Preferences.getInstance().alwaysOnTop;
+        if (pDebug) {
+            alwaysTopItem.setState(alwaysTop);
+            container.setAlwaysOnTop(alwaysTop);
+        }
+        RunnableAction alwaysTopAction = new RunnableAction(
+                getString("alwaysTopName"), getInt("alwaysTopMnemonic"),
+                new Runnable() {
+            public void run() {
+                boolean alwaysOnTop = alwaysTopItem.isSelected();
+                Preferences.getInstance().alwaysOnTop = alwaysOnTop;
+                frame.setAlwaysOnTop(alwaysOnTop);
+            }
+        });
+        alwaysTopItem.setAction(alwaysTopAction);
+        menu.add(alwaysTopItem);
 
         menubar.add(menu);
 

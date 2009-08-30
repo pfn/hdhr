@@ -23,6 +23,7 @@ public class Preferences implements Serializable {
     public TreePath lastViewedPath;
     public int fontDelta;
     public boolean programDebug;
+    public boolean alwaysOnTop;
     public String videoBackend;
     public String userUUID;
     public int volume;
