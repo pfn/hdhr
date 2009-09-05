@@ -24,8 +24,11 @@ import com.hanhuy.hdhr.ui.ProgressDialog;
 import com.hanhuy.hdhr.ui.RunnableAction;
 
 import java.beans.PropertyEditorManager;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeEvent;
 import java.io.IOException;
 import java.awt.Component;
+import java.awt.Frame;
 import java.awt.Point;
 import java.awt.Font;
 import java.awt.CardLayout;
@@ -95,6 +98,10 @@ public class Main extends ResourceBundleForm implements Runnable {
     public static JPanel cardPane;
 
     private JMenu deinterlacerMenu;
+
+    private boolean maximized;
+    private boolean normalCollapsed;
+    private static int SPLIT_THRESHOLD;
 
     static JTree tree;
 
@@ -206,6 +213,14 @@ public class Main extends ResourceBundleForm implements Runnable {
         });
         alwaysTopItem.setAction(alwaysTopAction);
         menu.add(alwaysTopItem);
+        menu.add(new RunnableAction(getString("toggleNavName"),
+                getInt("toggleNavMnemonic"),
+                getString("toggleNavAccelerator"),
+                getIcon("toggleNavIcon"), new Runnable() {
+            public void run() {
+                hideSplit(frame);
+            }
+        }));
 
         menubar.add(menu);
 
@@ -308,11 +323,25 @@ public class Main extends ResourceBundleForm implements Runnable {
         if (Preferences.getInstance().fontDelta != 0)
             changeFontSize(Preferences.getInstance().fontDelta);
 
-        JFrame jframe = new JFrame(getString("title"));
+        final JFrame jframe = new JFrame(getString("title"));
         jframe.setIconImage(((ImageIcon)getIcon("icon")).getImage());
         initMenu(jframe);
 
         split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+        split.addPropertyChangeListener(new PropertyChangeListener() {
+            public void propertyChange(PropertyChangeEvent e) {
+                if ("dividerLocation".equals(e.getPropertyName())) {
+                    final int loc = (Integer) e.getNewValue();
+                    EventQueue.invokeLater(new Runnable() {
+                        public void run() {
+                            if (loc == SPLIT_THRESHOLD)
+                                split.setDividerLocation(0);
+                        }
+                    });
+                }
+            }
+        });
+
         TreePopupListener l = new TreePopupListener();
         tree = new JTree(model);
         tree.setExpandsSelectedPaths(true);
@@ -372,12 +401,46 @@ public class Main extends ResourceBundleForm implements Runnable {
                 exit();
             }
         });
+        jframe.addWindowStateListener(new WindowAdapter() {
+            @Override
+            public void windowStateChanged(WindowEvent e) {
+                int stateChange = (e.getNewState() ^ e.getOldState());
+                boolean maximizing = (stateChange & Frame.MAXIMIZED_BOTH) ==
+                        Frame.MAXIMIZED_BOTH;
+
+                maximized = (Frame.MAXIMIZED_BOTH & frame.getExtendedState()) ==
+                        Frame.MAXIMIZED_BOTH;
+                if (maximizing && maximized) {
+                    hideSplit(frame, true);
+                } else if (maximizing && !maximized) {
+                    final int splitpref =
+                            Preferences.getInstance().splitLocation;
+                    EventQueue.invokeLater(new Runnable() {
+                        public void run() {
+                            if (!normalCollapsed)
+                                split.setDividerLocation(splitpref);
+                            else
+                                split.setDividerLocation(0);
+                        }
+                    });
+                }
+            }
+        });
 
         JPanel topPane = new JPanel();
         topPane.setLayout(new BoxLayout(topPane, BoxLayout.X_AXIS));
 
         JToolBar bar = new JToolBar();
         bar.setFloatable(false);
+        bar.add(new RunnableAction(getString("toggleNavName"),
+                getInt("toggleNavMnemonic"),
+                getString("toggleNavAccelerator"),
+                getIcon("toggleNavIcon"), new Runnable() {
+            public void run() {
+                hideSplit(jframe);
+            }
+        }));
+        bar.addSeparator();
         bar.add(TimeShiftActions.getAction(TimeShiftActions.Name.PAUSE_RESUME));
         bar.add(TimeShiftActions.getAction(TimeShiftActions.Name.SHIFT_START));
         bar.add(TimeShiftActions.getAction(TimeShiftActions.Name.REWIND_LONG));
@@ -424,6 +487,7 @@ public class Main extends ResourceBundleForm implements Runnable {
         bar.add(timeslider);
         bar.add(Box.createHorizontalStrut(5));
         bar.add(TimeShiftActions.getAction(TimeShiftActions.Name.STOP));
+        bar.addSeparator();
         topPane.add(bar);
         ToolTipManager.sharedInstance().registerComponent(timeslider);
         TimeShiftActions.getInstance().setTimeSlider(timeslider);
@@ -512,11 +576,13 @@ public class Main extends ResourceBundleForm implements Runnable {
             jframe.setLocation(winLoc);
         if (size != null)
             jframe.setSize(size);
-        if (location > 0)
+        if (location > SPLIT_THRESHOLD)
             split.setDividerLocation(location);
 
         jframe.setVisible(true);
         frame = jframe;
+        // need to set this after going visible (UI setup)
+        SPLIT_THRESHOLD = split.getMinimumDividerLocation();
     }
 
     private Map<Object,Object> defaults = new HashMap<Object,Object>();
@@ -552,16 +618,78 @@ public class Main extends ResourceBundleForm implements Runnable {
     void exit() {
 
         ProgramCard.INSTANCE.stopPlayer(true);
-        Preferences.getInstance().windowLocation = frame.getLocation();
-        Preferences.getInstance().windowSize = frame.getSize();
-        Preferences.getInstance().splitLocation =
-                split.getDividerLocation();
+        if (split.getDividerLocation() > SPLIT_THRESHOLD) {
+            Preferences.getInstance().windowLocation = frame.getLocation();
+            Preferences.getInstance().windowSize = frame.getSize();
+            Preferences.getInstance().splitLocation =
+                    split.getDividerLocation();
+        }
 
         frame.setVisible(false);
         frame.dispose();
 
         Preferences.save();
         System.exit(0);
+    }
+
+    private void hideSplit(JFrame jframe) {
+        hideSplit(jframe, false);
+    }
+    private void hideSplit(final JFrame jframe, boolean collapseOnly) {
+        boolean collapse = false;;
+        int loc = Preferences.getInstance().splitLocation;
+        int cur = split.getDividerLocation();
+        if (cur < SPLIT_THRESHOLD && !collapseOnly) {
+            split.setDividerLocation(loc);
+        } else {
+            collapse = true;
+            split.setDividerLocation(0);
+            if (cur > SPLIT_THRESHOLD)
+                Preferences.getInstance().splitLocation = cur;
+
+            loc = cur;
+            cur = split.getDividerLocation();
+        }
+        final int cur0 = cur;
+        final int loc0 = loc;
+        final boolean collapse0 = collapse;
+        if (!maximized) {
+            normalCollapsed = collapse;
+        }
+        EventQueue.invokeLater(new Runnable() {
+            public void run() {
+                int cur1 = cur0 == 0 ?
+                        split.getDividerLocation() : cur0;
+                int xoffset = cur1 - loc0;
+
+                Point l     = jframe.getLocation();
+                Dimension s = jframe.getSize();
+
+                xoffset = collapse0 ?
+                        (-1 * Math.abs(xoffset)) : Math.abs(xoffset);
+                l.x     -= xoffset;
+                s.width += xoffset;
+
+                // help prevent flickering outside of the window
+                if (!maximized) {
+                    if (collapse0) {
+                        jframe.setSize(s);
+                        jframe.setLocation(l);
+                    } else {
+                        jframe.setLocation(l);
+                        jframe.setSize(s);
+                    }
+                }
+                // split resets to a larger size after resizing/relocating
+                if (collapse0) {
+                    EventQueue.invokeLater(new Runnable() {
+                        public void run() {
+                            split.setDividerLocation(0);
+                        }
+                    });
+                }
+            }
+        });
     }
 
 }
@@ -623,4 +751,5 @@ class TreePopupListener implements MouseListener, TreeSelectionListener {
             }
         }
     }
+
 }
