@@ -1,8 +1,9 @@
 package com.hanhuy.hdhr.config;
 
+import com.hanhuy.hdhr.config.net.IfaceAddress;
+
 import java.io.IOException;
 import java.net.NetworkInterface;
-import java.net.InterfaceAddress;
 import java.net.DatagramSocket;
 import java.net.DatagramPacket;
 import java.net.SocketException;
@@ -44,22 +45,19 @@ public class Discover {
                     NetworkInterface.getNetworkInterfaces();
     
             List<DatagramChannel> socks = new ArrayList<DatagramChannel>();
-            Map<DatagramChannel,InterfaceAddress> ifaceMap =
-                    new HashMap<DatagramChannel,InterfaceAddress>();
-            while (ifaces.hasMoreElements()) {
-                NetworkInterface iface = ifaces.nextElement();
-                List<InterfaceAddress> addrs = iface.getInterfaceAddresses();
-                for (InterfaceAddress addr : addrs) {
-                    if (addr.getBroadcast() == null)
-                        continue;
-                    DatagramChannel c = DatagramChannel.open();
-                    DatagramSocket sock = c.socket();
-                    sock.setSoTimeout(1000);
-                    sock.setBroadcast(true);
-                    sock.bind(new InetSocketAddress(addr.getAddress(), 0));
-                    socks.add(c);
-                    ifaceMap.put(c, addr);
-                }
+            Map<DatagramChannel,IfaceAddress> ifaceMap =
+                    new HashMap<DatagramChannel,IfaceAddress>();
+            List<IfaceAddress> addrs = IfaceAddress.Factory.getIfaceAddresses();
+            for (IfaceAddress addr : addrs) {
+                if (addr.getBroadcast() == null)
+                    continue;
+                DatagramChannel c = DatagramChannel.open();
+                DatagramSocket sock = c.socket();
+                sock.setSoTimeout(1000);
+                sock.setBroadcast(true);
+                sock.bind(new InetSocketAddress(addr.getAddress(), 0));
+                socks.add(c);
+                ifaceMap.put(c, addr);
             }
     
             Packet packet = new Packet();
