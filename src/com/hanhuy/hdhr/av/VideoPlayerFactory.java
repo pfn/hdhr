@@ -48,7 +48,8 @@ public class VideoPlayerFactory {
             names.add(BACKEND_MPLAYER);
 
         names.add(BACKEND_UDP_EXTERNAL);
-        names.add(BACKEND_HTTP_EXTERNAL);
+        if (!Platform.isMac())
+            names.add(BACKEND_HTTP_EXTERNAL);
         return names.toArray(new String[names.size()]);
     }
 }
