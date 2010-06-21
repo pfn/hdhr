@@ -137,7 +137,7 @@ public class VLCVideoPlayer implements VideoPlayer, TimeShiftListener {
                 "-I",            "dummy",
                 "--no-video-title-show",
                 "--no-osd",
-                "--mouse-hide-timeout", "100"
+                "--mouse-hide-timeout=100"
         ));
         if (deinterlacer != null) {
             vlc_args.add("--video-filter");
@@ -147,17 +147,17 @@ public class VLCVideoPlayer implements VideoPlayer, TimeShiftListener {
         }
         if (debug) {
             vlc_args.add("-vvv");
-            vlc_args.add("--no-overlay");
+            if (!Platform.isMac())
+                vlc_args.add("--no-overlay");
         } else {
             vlc_args.add("--quiet");
             vlc_args.add("1");
             vlc_args.add("--verbose");
             vlc_args.add("0");
         }
-        if (Platform.isWindows()) {
+        if (Platform.isWindows() || Platform.isMac()) {
             if (libraryPath != null) {
-                vlc_args.add("--plugin-path");
-                vlc_args.add(libraryPath);
+                vlc_args.add("--plugin-path=" + libraryPath);
             }
         }
         if (LIBVLC_VERSION.startsWith("0.9")) {
@@ -165,15 +165,15 @@ public class VLCVideoPlayer implements VideoPlayer, TimeShiftListener {
             vlc_args.add("4");
         } else if (LIBVLC_VERSION.startsWith("1.")) {
             // disable keyboard and mouse event handling
-            vlc_args.add("--codec"); // avoid libmpeg2 crashes
-            vlc_args.add("avcodec"); // prior to 1.0.0rc5 avcodec has buffer
+            vlc_args.add("--codec=avcodec"); // prior to 1.0.0rc5 avcodec has buffer
                                      // alignment problems
-            vlc_args.add("--vout-event");
-            vlc_args.add("3");
+            vlc_args.add("--vout-event=3");
 
-            vlc_args.add("--ffmpeg-fast");
-            vlc_args.add("--ffmpeg-skiploopfilter");
-            vlc_args.add("all");
+            if (!Platform.isMac()) {
+                vlc_args.add("--ffmpeg-fast");
+                vlc_args.add("--ffmpeg-skiploopfilter");
+                vlc_args.add("all");
+            }
         } else {
             throw new VideoPlayerException(
                     "Unsupported VLC version: " + LIBVLC_VERSION);
